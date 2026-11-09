@@ -18,9 +18,11 @@ capital_expenditure     Purchases of property, plant and equipment, as a positiv
 free_cash_flow          operating_cash_flow - capital_expenditure. A calculated (non-GAAP) measure.
 free_cash_flow_growth   Suppressed when the prior-year value is <= 0; the absolute change is still given.
 cash_and_equivalents    Reported cash and cash equivalents at year end.
-interest_bearing_debt   Long-term debt including current maturities (LongTermDebt, or noncurrent +
-                        current) + commercial paper + short-term borrowings. Operating and finance lease
-                        liabilities are excluded. Total liabilities is never used as a substitute.
+interest_bearing_debt   Long-term debt including current maturities (noncurrent + current balance-sheet
+                        carrying amounts, else LongTermDebt) + commercial paper + short-term borrowings.
+                        Lease liabilities are excluded, except where the filer tags debt and finance
+                        leases together; the metric note then says so. Total liabilities is never used
+                        as a substitute.
 current_ratio           current_assets / current_liabilities. Not applicable for unclassified balance sheets.
 
 No metric here needs an opening balance, so no extra prior-year balance is fetched. Metrics that
@@ -146,13 +148,18 @@ class _Builder:
 
     def debt(self, lbl: str) -> CalculatedMetric:
         name = "interest_bearing_debt"
-        formula = ("long-term debt incl. current maturities (LongTermDebt, else noncurrent + current) "
-                   "+ commercial paper + short-term borrowings; leases excluded")
+        formula = ("long-term debt incl. current maturities (noncurrent + current, else LongTermDebt) "
+                   "+ commercial paper + short-term borrowings; leases excluded unless tagged together with debt")
         total, nonc, cur = (self.fact("long_term_debt_total", lbl), self.fact("long_term_debt_noncurrent", lbl),
                             self.fact("long_term_debt_current", lbl))
         notes: list[str] = []
         parts: list[FinancialFact] = []
-        if total:
+        # Prefer the balance-sheet lines: some filers tag LongTermDebt at face value
+        # (before unamortized discount and issuance costs), which does not tie to the
+        # balance sheet. Use LongTermDebt only when the current portion is missing.
+        if nonc and cur:
+            parts += [nonc, cur]
+        elif total:
             parts.append(total)
         elif nonc:
             parts.append(nonc)
@@ -172,6 +179,8 @@ class _Builder:
                 parts.append(f)
             else:
                 notes.append(f"{comp.replace('_', ' ')} not reported; not included")
+        if any(p.tag and "CapitalLease" in p.tag for p in parts):
+            notes.append("includes finance lease obligations: the filer tags debt and finance leases together")
         value = sum((p.value for p in parts), Decimal(0))
         return self.add(CalculatedMetric(id=mid(name, lbl), name=name, fiscal_period=lbl, value=value,
                                          unit="USD", formula=formula, input_fact_ids=[p.id for p in parts],

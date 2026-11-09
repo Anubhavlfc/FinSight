@@ -6,7 +6,7 @@ from decimal import Decimal
 
 from finsight.changes import detect_changes
 from finsight.config import AnalysisSettings, load_mappings, load_settings
-from finsight.contracts import MetricStatus
+from finsight.contracts import MetricStatus, Severity
 from finsight.metrics import compute_metrics
 from finsight.validator import validate
 from tests.conftest import annual, collection, instant, make_plan
@@ -78,7 +78,7 @@ def test_debt_components_and_disclosure():
     assert d25.value == 107 and "current portion" in d25.note and "commercial paper not reported" in d25.note
 
 
-def test_long_term_debt_total_preferred_over_components():
+def test_long_term_debt_consistent_tags_raise_no_issue():
     extra = []
     for fy in (2024, 2025, 2026):
         extra += [instant("LongTermDebt", fy, 120), instant("LongTermDebtNoncurrent", fy, 100),
@@ -86,6 +86,34 @@ def test_long_term_debt_total_preferred_over_components():
     m, report = metrics_for(rows_with((100, 120, 150), (10, 12, 15), extra=extra))
     assert m["metric:interest_bearing_debt:FY2026"].value == 120
     assert not [i for i in report.issues if i.code == "accounting_check_failed"]
+
+
+def test_balance_sheet_debt_lines_preferred_over_face_value_total():
+    # Amazon-style: LongTermDebt at face value, balance-sheet lines at carrying amount.
+    M = 1_000_000
+    extra = []
+    for fy in (2024, 2025, 2026):
+        extra += [instant("LongTermDebt", fy, 6880 * M), instant("LongTermDebtNoncurrent", fy, 6560 * M),
+                  instant("LongTermDebtCurrent", fy, 280 * M)]
+    rows = rows_with((1000 * M, 1200 * M, 1500 * M), (100 * M, 120 * M, 150 * M), extra=extra)
+    m, report = metrics_for(rows)
+    d = m["metric:interest_bearing_debt:FY2026"]
+    assert d.value == 6840 * M and len(d.input_fact_ids) == 2
+    checks = [i for i in report.issues if i.code == "accounting_check_failed"]
+    assert len(checks) == 3 and all(i.severity == Severity.INFO for i in checks)
+    assert "face value" in checks[0].message
+
+
+def test_debt_and_finance_lease_tags_used_as_disclosed_fallback():
+    # Coca-Cola-style: LongTermDebt tags stop after FY2024; combined debt+lease tags cover every year.
+    extra = [instant("LongTermDebtNoncurrent", 2024, 90), instant("LongTermDebtCurrent", 2024, 10)]
+    for fy in (2024, 2025, 2026):
+        extra += [instant("LongTermDebtAndCapitalLeaseObligations", fy, 95),
+                  instant("LongTermDebtAndCapitalLeaseObligationsCurrent", fy, 11)]
+    m, _ = metrics_for(rows_with((100, 120, 150), (10, 12, 15), extra=extra))
+    for fy in (2024, 2025, 2026):
+        d = m[f"metric:interest_bearing_debt:FY{fy}"]
+        assert d.value == 106 and "finance lease" in d.note
 
 
 def test_gross_margin_not_applicable_without_gross_profit():

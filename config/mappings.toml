@@ -13,15 +13,23 @@
 # optional: the field may legitimately be absent (missing -> warning, not blocking).
 # missing_severity: override the severity for a missing optional field ("info" for debt
 #       components, which have alternative representations and are disclosed on the debt metric).
+# competing_difference_severity: severity when a lower-priority tag reports a different value.
+#       Defaults to "warning". Set to "info" where the tags measure different things by
+#       definition (e.g. net income attributable to the parent vs. including noncontrolling
+#       interests), so an expected difference is disclosed without reading as a data problem.
 #
 # Company-specific overrides live in config/companies/<CIK>.toml and are prepended
 # to these lists.
 
+# us-gaap:Revenues is the total-revenue line. Filers with revenue outside ASC 606
+# (membership fees, leases, interest) tag only the 606 portion with
+# RevenueFromContractWithCustomer..., so that tag understates total revenue
+# (e.g. Walmart: net sales vs. total revenues). Prefer the total.
 [fields.revenue]
 period_type = "duration"
 tags = [
-    "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
     "us-gaap:Revenues",
+    "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
     "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax",
     "us-gaap:SalesRevenueNet",
 ]
@@ -57,6 +65,9 @@ tags = [
     "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic",
 ]
 required_for = ["net_margin"]
+# ProfitLoss includes noncontrolling interests; the common-stockholders tag deducts
+# preferred dividends. Both differ from NetIncomeLoss by definition.
+competing_difference_severity = "info"
 
 [fields.operating_cash_flow]
 period_type = "duration"
@@ -82,6 +93,8 @@ tags = [
     "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
 ]
 required_for = ["cash_and_equivalents"]
+# The fallback tag includes restricted cash, so it differs by definition.
+competing_difference_severity = "info"
 
 [fields.current_assets]
 period_type = "instant"
@@ -105,6 +118,8 @@ period_type = "instant"
 tags = ["us-gaap:Liabilities"]
 required_for = []
 optional = true
+# Many filers (e.g. Walmart) do not present a total-liabilities line.
+derive_from = "liabilities_and_equity - stockholders_equity"
 
 [fields.stockholders_equity]
 period_type = "instant"
@@ -114,6 +129,8 @@ tags = [
 ]
 required_for = []
 optional = true
+# StockholdersEquity excludes noncontrolling interests, so it differs by definition.
+competing_difference_severity = "info"
 
 [fields.liabilities_and_equity]
 period_type = "instant"
@@ -125,24 +142,27 @@ optional = true
 # Interest-bearing debt = long-term debt (current + noncurrent, or the combined tag)
 #                       + commercial paper + short-term borrowings.
 # Lease liabilities are excluded. Total liabilities is never used as a substitute.
+# The LongTermDebtAndCapitalLeaseObligations* tags are fallbacks for filers that tag
+# debt and finance leases together (e.g. Coca-Cola from FY2024); the debt metric
+# discloses when they are used.
 
 [fields.long_term_debt_total]
 period_type = "instant"
-tags = ["us-gaap:LongTermDebt"]
+tags = ["us-gaap:LongTermDebt", "us-gaap:LongTermDebtAndCapitalLeaseObligationsIncludingCurrentMaturities"]
 required_for = []
 optional = true
 missing_severity = "info"
 
 [fields.long_term_debt_noncurrent]
 period_type = "instant"
-tags = ["us-gaap:LongTermDebtNoncurrent"]
+tags = ["us-gaap:LongTermDebtNoncurrent", "us-gaap:LongTermDebtAndCapitalLeaseObligations"]
 required_for = []
 optional = true
 missing_severity = "info"
 
 [fields.long_term_debt_current]
 period_type = "instant"
-tags = ["us-gaap:LongTermDebtCurrent"]
+tags = ["us-gaap:LongTermDebtCurrent", "us-gaap:LongTermDebtAndCapitalLeaseObligationsCurrent"]
 required_for = []
 optional = true
 missing_severity = "info"

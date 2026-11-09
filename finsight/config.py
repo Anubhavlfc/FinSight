@@ -133,6 +133,7 @@ class FieldMapping:
     optional: bool = False
     derive_from: str | None = None
     missing_severity: Literal["info", "warning"] = "warning"
+    competing_difference_severity: Literal["info", "warning"] = "warning"
 
 
 @dataclass(frozen=True)
@@ -168,5 +169,6 @@ def load_mappings(config_dir: Path | None = None, cik: str | None = None) -> Map
             optional=bool(spec.get("optional", False)),
             derive_from=spec.get("derive_from"),
             missing_severity=spec.get("missing_severity", "warning"),
+            competing_difference_severity=spec.get("competing_difference_severity", "warning"),
         )
     return Mappings(fields=fields, company_overrides_applied=tuple(applied))

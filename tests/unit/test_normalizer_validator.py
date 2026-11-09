@@ -156,3 +156,41 @@ def test_non_consecutive_years_are_blocking():
     plan = make_plan(ends=("2022-06-30", "2024-06-30", "2025-06-30"))
     out = run(base_rows(), plan=plan).report
     assert "non_consecutive_periods" in codes(out, Severity.BLOCKING)
+
+
+def test_total_revenue_tag_preferred_over_asc606_revenue():
+    # Walmart-style: Revenues (total, incl. membership income) > ASC 606 net sales.
+    M = 1_000_000
+    rows = base_rows()
+    for fy, rev in [(2024, 100), (2025, 120), (2026, 150)]:
+        rows.append(annual("Revenues", fy, rev + 50 * M))
+    out = run(rows).report
+    assert out.fact("revenue", "FY2026").value == 150 + 50 * M
+    assert out.fact("revenue", "FY2026").tag == "Revenues"
+    assert codes(out).count("competing_tag_differs") == 3
+    assert codes(out, Severity.WARNING).count("competing_tag_differs") == 3
+
+
+def test_definitional_tag_differences_are_info_not_warning():
+    rows = base_rows()
+    for fy in (2024, 2025, 2026):
+        M = 1_000_000
+        rows += [annual("ProfitLoss", fy, 999 * M),
+                 instant("CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents", fy, 55 * M),
+                 instant("StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", fy, 300 * M),
+                 instant("StockholdersEquity", fy, 280 * M)]
+    out = run(rows).report
+    differs = [i for i in out.issues if i.code == "competing_tag_differs"]
+    assert len(differs) == 9 and all(i.severity == Severity.INFO for i in differs)
+
+
+def test_total_liabilities_derived_and_balance_check_not_circular():
+    rows = base_rows()
+    for fy in (2024, 2025, 2026):
+        rows += [instant("LiabilitiesAndStockholdersEquity", fy, 500),
+                 instant("StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest", fy, 320)]
+    out = run(rows).report
+    liab = out.fact("total_liabilities", "FY2026")
+    assert liab.value == 180 and liab.status == FactStatus.DERIVED
+    assert "derived_field" in codes(out, Severity.INFO)
+    assert not [i for i in out.issues if i.code == "optional_field_missing" and i.field == "total_liabilities"]

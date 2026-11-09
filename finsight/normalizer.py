@@ -256,7 +256,8 @@ def normalize(plan: AnalysisPlan, rows: list[RawFactRow], mappings: Mappings, se
                                source_doc_id)
                 res.rejected.append(rej)
                 if differs:
-                    issue("competing_tag_differs", Severity.WARNING,
+                    issue("competing_tag_differs",
+                          Severity.INFO if mapping.competing_difference_severity == "info" else Severity.WARNING,
                           f"{mapping.name} {lbl}: {other} reports {money(best.val)} but {tag} reports {money(selected.val)}. "
                           f"Using {tag} per the configured priority.",
                           field=mapping.name, fiscal_period=lbl, fact_ids=[accepted.id, rej.id])
