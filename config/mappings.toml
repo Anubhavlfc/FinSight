@@ -1,0 +1,162 @@
+# Standardized field -> XBRL tags, in priority order.
+#
+# The normalizer picks the highest-priority tag that has a value for every fiscal
+# year in the window (so the years stay comparable). If no single tag covers all
+# years it falls back per year and raises a comparability warning. Other tags that
+# also report a value are kept as rejected candidates with a reason.
+#
+# period_type: "duration" (income / cash-flow, measured over the year) or
+#              "instant" (balance sheet, measured at year end).
+# sign: "as_reported" or "positive_outflow" (value is a cash outflow that must be
+#       expressed as a positive number; a negative reported value is flipped and disclosed).
+# required_for: metrics that cannot be computed without this field.
+# optional: the field may legitimately be absent (missing -> warning, not blocking).
+# missing_severity: override the severity for a missing optional field ("info" for debt
+#       components, which have alternative representations and are disclosed on the debt metric).
+#
+# Company-specific overrides live in config/companies/<CIK>.toml and are prepended
+# to these lists.
+
+[fields.revenue]
+period_type = "duration"
+tags = [
+    "us-gaap:RevenueFromContractWithCustomerExcludingAssessedTax",
+    "us-gaap:Revenues",
+    "us-gaap:RevenueFromContractWithCustomerIncludingAssessedTax",
+    "us-gaap:SalesRevenueNet",
+]
+required_for = ["revenue", "revenue_growth", "gross_margin", "operating_margin", "net_margin"]
+
+[fields.cost_of_revenue]
+period_type = "duration"
+tags = [
+    "us-gaap:CostOfGoodsAndServicesSold",
+    "us-gaap:CostOfRevenue",
+    "us-gaap:CostOfGoodsSold",
+]
+required_for = []
+optional = true
+
+[fields.gross_profit]
+period_type = "duration"
+tags = ["us-gaap:GrossProfit"]
+required_for = ["gross_margin"]
+optional = true
+derive_from = "revenue - cost_of_revenue"
+
+[fields.operating_income]
+period_type = "duration"
+tags = ["us-gaap:OperatingIncomeLoss"]
+required_for = ["operating_margin"]
+
+[fields.net_income]
+period_type = "duration"
+tags = [
+    "us-gaap:NetIncomeLoss",
+    "us-gaap:ProfitLoss",
+    "us-gaap:NetIncomeLossAvailableToCommonStockholdersBasic",
+]
+required_for = ["net_margin"]
+
+[fields.operating_cash_flow]
+period_type = "duration"
+tags = [
+    "us-gaap:NetCashProvidedByUsedInOperatingActivities",
+    "us-gaap:NetCashProvidedByUsedInOperatingActivitiesContinuingOperations",
+]
+required_for = ["operating_cash_flow", "free_cash_flow"]
+
+[fields.capital_expenditure]
+period_type = "duration"
+sign = "positive_outflow"
+tags = [
+    "us-gaap:PaymentsToAcquirePropertyPlantAndEquipment",
+    "us-gaap:PaymentsToAcquireProductiveAssets",
+]
+required_for = ["capital_expenditure", "free_cash_flow"]
+
+[fields.cash_and_equivalents]
+period_type = "instant"
+tags = [
+    "us-gaap:CashAndCashEquivalentsAtCarryingValue",
+    "us-gaap:CashCashEquivalentsRestrictedCashAndRestrictedCashEquivalents",
+]
+required_for = ["cash_and_equivalents"]
+
+[fields.current_assets]
+period_type = "instant"
+tags = ["us-gaap:AssetsCurrent"]
+required_for = ["current_ratio"]
+optional = true
+
+[fields.current_liabilities]
+period_type = "instant"
+tags = ["us-gaap:LiabilitiesCurrent"]
+required_for = ["current_ratio"]
+optional = true
+
+[fields.total_assets]
+period_type = "instant"
+tags = ["us-gaap:Assets"]
+required_for = []
+
+[fields.total_liabilities]
+period_type = "instant"
+tags = ["us-gaap:Liabilities"]
+required_for = []
+optional = true
+
+[fields.stockholders_equity]
+period_type = "instant"
+tags = [
+    "us-gaap:StockholdersEquityIncludingPortionAttributableToNoncontrollingInterest",
+    "us-gaap:StockholdersEquity",
+]
+required_for = []
+optional = true
+
+[fields.liabilities_and_equity]
+period_type = "instant"
+tags = ["us-gaap:LiabilitiesAndStockholdersEquity"]
+required_for = []
+optional = true
+
+# ---- Interest-bearing debt components -------------------------------------------
+# Interest-bearing debt = long-term debt (current + noncurrent, or the combined tag)
+#                       + commercial paper + short-term borrowings.
+# Lease liabilities are excluded. Total liabilities is never used as a substitute.
+
+[fields.long_term_debt_total]
+period_type = "instant"
+tags = ["us-gaap:LongTermDebt"]
+required_for = []
+optional = true
+missing_severity = "info"
+
+[fields.long_term_debt_noncurrent]
+period_type = "instant"
+tags = ["us-gaap:LongTermDebtNoncurrent"]
+required_for = []
+optional = true
+missing_severity = "info"
+
+[fields.long_term_debt_current]
+period_type = "instant"
+tags = ["us-gaap:LongTermDebtCurrent"]
+required_for = []
+optional = true
+missing_severity = "info"
+
+[fields.commercial_paper]
+period_type = "instant"
+tags = ["us-gaap:CommercialPaper"]
+required_for = []
+optional = true
+missing_severity = "info"
+
+[fields.short_term_borrowings]
+period_type = "instant"
+tags = ["us-gaap:ShortTermBorrowings"]
+required_for = []
+optional = true
+missing_severity = "info"
