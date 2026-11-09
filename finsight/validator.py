@@ -22,12 +22,13 @@ class ValidationOutcome:
 
 
 def _check(issue, settings, lbl, name, expected_desc, actual_desc, expected: Decimal, actual: Decimal,
-           fact_ids: list[str], fields: list[str]) -> None:
+           fact_ids: list[str], fields: list[str], severity: Severity = Severity.WARNING,
+           explanation: str = "") -> None:
     if within_tolerance(expected, actual, settings):
         return
-    issue("accounting_check_failed", Severity.WARNING,
+    issue("accounting_check_failed", severity,
           f"{lbl}: {name} does not hold: {expected_desc} = {expected:,} vs {actual_desc} = {actual:,} "
-          f"(difference {expected - actual:,}). Recorded for investigation; no balancing entry was made.",
+          f"(difference {expected - actual:,}). {explanation}Recorded for investigation; no balancing entry was made.",
           fiscal_period=lbl, fact_ids=fact_ids, details={"check": name, "fields": fields,
                                                          "expected": str(expected), "actual": str(actual)})
 
@@ -90,7 +91,8 @@ def validate(plan: AnalysisPlan, collection: CollectionResult, mappings: Mapping
             _check(issue, settings, lbl, "balance sheet balances", "total assets", "liabilities and equity",
                    assets.value, le.value, [assets.id, le.id], ["total_assets", "liabilities_and_equity"])
         liab, eq = v("total_liabilities", lbl), v("stockholders_equity", lbl)
-        if assets and liab and eq:
+        # A derived total liabilities (L&E - equity) would make this check circular.
+        if assets and liab and eq and liab.status != FactStatus.DERIVED:
             _check(issue, settings, lbl, "assets = liabilities + equity", "total assets",
                    "liabilities + equity", assets.value, liab.value + eq.value,
                    [assets.id, liab.id, eq.id], ["total_assets", "total_liabilities", "stockholders_equity"])
@@ -103,7 +105,11 @@ def validate(plan: AnalysisPlan, collection: CollectionResult, mappings: Mapping
         if ltd and ltn and ltc:
             _check(issue, settings, lbl, "long-term debt = noncurrent + current", "long-term debt",
                    "noncurrent + current", ltd.value, ltn.value + ltc.value,
-                   [ltd.id, ltn.id, ltc.id], ["long_term_debt_total", "long_term_debt_noncurrent", "long_term_debt_current"])
+                   [ltd.id, ltn.id, ltc.id], ["long_term_debt_total", "long_term_debt_noncurrent", "long_term_debt_current"],
+                   severity=Severity.INFO,
+                   explanation="Filers often tag LongTermDebt at face value and the balance-sheet lines at "
+                               "carrying amount (net of unamortized discount and issuance costs); the debt "
+                               "metric uses the balance-sheet lines. ")
         for part, whole, name in [("current_assets", "total_assets", "current assets <= total assets"),
                                   ("current_liabilities", "total_liabilities", "current liabilities <= total liabilities"),
                                   ("cash_and_equivalents", "current_assets", "cash <= current assets")]:

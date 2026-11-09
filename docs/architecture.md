@@ -96,14 +96,25 @@ dimensions, i.e. consolidated totals. Segment data needs the filing itself (Stag
 value is flipped and disclosed with a `sign_normalized` warning.
 
 **Missing data.** Alternative tags are tried first, then configured derivations (gross
-profit = revenue − cost of revenue, marked `DERIVED` with input fact IDs). A required field
+profit = revenue − cost of revenue; total liabilities = liabilities and equity − total
+equity; both marked `DERIVED` with input fact IDs). A required field
 that is still missing is a blocking issue for the metrics that need it. Nothing is
 estimated. Extraction from the filing text is the Stage 2 fallback.
 
 **Accounting checks** (tolerance = max(USD 5m, 0.1%)): assets = liabilities and equity;
 assets = liabilities + equity; gross profit = revenue − cost of revenue; long-term debt =
 noncurrent + current; current assets ≤ total assets; current liabilities ≤ total
-liabilities; cash ≤ current assets. A failure is a warning with the numbers attached.
+liabilities; cash ≤ current assets. A failure is a warning with the numbers attached. The
+assets = liabilities + equity check is skipped when total liabilities was derived (it would
+be circular). The long-term debt check is `info`, because filers often tag `LongTermDebt` at
+face value and the balance-sheet lines at carrying amount.
+
+**Competing tags.** When a lower-priority tag reports a different value, that is a warning
+by default. Fields whose fallback tags differ by definition (net income including
+noncontrolling interests, cash including restricted cash, equity excluding noncontrolling
+interests) set `competing_difference_severity = "info"` in `config/mappings.toml`.
+Revenue prefers `us-gaap:Revenues` (total revenue) over the ASC 606 tag, which leaves out
+membership, lease and financing revenue at filers such as Walmart and GM.
 
 **Issue severity.** `info` (disclosed decision), `warning` (continue with limitation),
 `recoverable` (the workflow retries, e.g. refetching stale company facts), `blocking`
@@ -115,10 +126,13 @@ See the docstring in `finsight/metrics.py` for formulas. Key choices:
 
 * **Free cash flow** = operating cash flow − capital expenditure (purchases of PP&E). It is a
   calculated, non-GAAP measure and labelled as such.
-* **Interest-bearing debt** = long-term debt including current maturities (`LongTermDebt`,
-  else `LongTermDebtNoncurrent` + `LongTermDebtCurrent`) + commercial paper + short-term
-  borrowings. Leases are excluded. Total liabilities is never substituted. Components
-  that are not reported are named in the metric's note.
+* **Interest-bearing debt** = long-term debt including current maturities
+  (`LongTermDebtNoncurrent` + `LongTermDebtCurrent`, the balance-sheet carrying amounts,
+  else `LongTermDebt`) + commercial paper + short-term borrowings. Leases are excluded,
+  except at filers that tag debt and finance leases together
+  (`LongTermDebtAndCapitalLeaseObligations*`), where the metric note says so. Total
+  liabilities is never substituted. Components that are not reported are named in the
+  metric's note.
 * **Growth** is only computed from a positive base. From a zero or negative base the
   percentage is `suppressed` and the absolute change is given.
 * **Margins** need positive revenue. Margin changes are in percentage points.
