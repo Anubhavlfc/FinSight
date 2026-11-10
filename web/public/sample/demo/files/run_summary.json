@@ -1,5 +1,5 @@
 {
-  "run_id": "run-20261110-030539-00452f",
+  "run_id": "run-20261110-075212-46319c",
   "state": "READY_FOR_REVIEW",
   "request": {
     "identifier": "0009999901",
@@ -63,7 +63,7 @@
       "supported_findings": 7,
       "supported_claim_rate": 0.875
     },
-    "last_drive_seconds": 0.191,
+    "last_drive_seconds": 0.16,
     "source_network": 0,
     "source_cache_hits": 0,
     "source_fixture_reads": 4
@@ -72,49 +72,49 @@
     {
       "from_state": "CREATED",
       "to_state": "PLANNING",
-      "at": "2026-11-10T03:05:39.024113Z",
+      "at": "2026-11-10T07:52:12.334416Z",
       "reason": "run started"
     },
     {
       "from_state": "PLANNING",
       "to_state": "COLLECTING",
-      "at": "2026-11-10T03:05:39.029839Z",
+      "at": "2026-11-10T07:52:12.340158Z",
       "reason": "planned DEMO ANALYTICS CORP (SYNTHETIC FIXTURE) (0009999901): FY2024 ending 2024-06-30, FY2025 ending 2025-06-30, FY2026 ending 2026-06-30"
     },
     {
       "from_state": "COLLECTING",
       "to_state": "VALIDATING",
-      "at": "2026-11-10T03:05:39.036079Z",
+      "at": "2026-11-10T07:52:12.347215Z",
       "reason": "collected 257 candidate XBRL values"
     },
     {
       "from_state": "VALIDATING",
       "to_state": "ANALYZING",
-      "at": "2026-11-10T03:05:39.045445Z",
+      "at": "2026-11-10T07:52:12.357430Z",
       "reason": "validated: 59 accepted facts, 0 blocking issue(s)"
     },
     {
       "from_state": "ANALYZING",
       "to_state": "INVESTIGATING",
-      "at": "2026-11-10T03:05:39.050668Z",
+      "at": "2026-11-10T07:52:12.363519Z",
       "reason": "8 change(s) flagged for investigation"
     },
     {
       "from_state": "INVESTIGATING",
       "to_state": "DRAFTING",
-      "at": "2026-11-10T03:05:39.190300Z",
+      "at": "2026-11-10T07:52:12.472432Z",
       "reason": "investigated 8 change(s)"
     },
     {
       "from_state": "DRAFTING",
       "to_state": "REVIEWING",
-      "at": "2026-11-10T03:05:39.204196Z",
+      "at": "2026-11-10T07:52:12.484491Z",
       "reason": "report revision 0 drafted with 29 claims"
     },
     {
       "from_state": "REVIEWING",
       "to_state": "READY_FOR_REVIEW",
-      "at": "2026-11-10T03:05:39.213951Z",
+      "at": "2026-11-10T07:52:12.493568Z",
       "reason": "review passed"
     }
   ],

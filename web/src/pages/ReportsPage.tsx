@@ -32,12 +32,12 @@ function Row({ run, to, sampleNote }: { run: RunSummary; to: string; sampleNote?
         </span>
       </th>
       <td data-label="Period" className="num">{periodRange(run.periods)}</td>
-      <td data-label="Created" className="num">{formatDateTime(run.created_at)}</td>
+      <td data-label="Created" className="created">{formatDateTime(run.created_at)}</td>
       <td data-label="Run status"><PhaseBadge phase={run.phase} /></td>
       <td data-label="Review status"><ReviewBadge review={run.review} /></td>
       <td data-label="Downloads">
         {run.formats.length > 0 ? (
-          <span className="formats">{run.formats.map((f) => <Badge key={f} square>{f}</Badge>)}</span>
+          <span className="formats mono">{run.formats.join(" · ")}</span>
         ) : (
           <span className="muted">None yet</span>
         )}
@@ -53,9 +53,13 @@ function Row({ run, to, sampleNote }: { run: RunSummary; to: string; sampleNote?
 
 function ReportTable({ caption, children }: { caption: string; children: React.ReactNode }) {
   return (
-    <div className="table-scroll">
+    <div className="table-scroll" tabIndex={0} role="group" aria-label="Scrollable table">
       <table className="data reports">
         <caption className="sr-only">{caption}</caption>
+        <colgroup>
+          <col className="c-company" /><col className="c-period" /><col className="c-created" /><col className="c-run" />
+          <col className="c-review" /><col className="c-files" /><col className="c-open" />
+        </colgroup>
         <thead>
           <tr>
             <th scope="col">Company</th><th scope="col">Period</th><th scope="col">Created</th><th scope="col">Run status</th>

@@ -13,6 +13,8 @@
   --surface-3: #1d2b43;
   --line: #24344d;
   --line-strong: #375072;
+  /* Boundaries of form fields and buttons: at least 3:1 against every surface. */
+  --control-line: #58759c;
 
   /* ink */
   --ink: #f3efe6;
@@ -220,7 +222,7 @@ th.num {
   gap: 8px;
   min-height: 38px;
   padding: 7px 14px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-line);
   border-radius: var(--radius);
   background: transparent;
   color: var(--ink);
@@ -433,8 +435,12 @@ th.num {
 /* ---------------------------------------------------------------- tables */
 
 .table-scroll {
+  position: relative;
+  max-width: 100%;
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
 }
 
 table.data {
@@ -474,6 +480,10 @@ table.data td.num {
   white-space: nowrap;
 }
 
+table.data td.num.left {
+  text-align: left;
+}
+
 table.data tbody th {
   font-weight: 500;
   color: var(--ink-2);
@@ -507,6 +517,7 @@ table.data tbody tr:hover {
   color: var(--ink-2);
 }
 
+.hint,
 .field .hint {
   font-size: 12.5px;
   color: var(--ink-3);
@@ -526,7 +537,7 @@ table.data tbody tr:hover {
   width: 100%;
   min-height: 40px;
   padding: 8px 12px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-line);
   border-radius: var(--radius);
   background: var(--bg);
   color: var(--ink);
@@ -646,4 +657,8 @@ table.data tbody tr:hover {
   .notice {
     border: 1px solid CanvasText;
   }
+}
+
+.nowrap {
+  white-space: nowrap;
 }

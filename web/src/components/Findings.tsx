@@ -21,7 +21,7 @@ export function PassageText({ passage, quotes = [] }: { passage: Passage; quotes
   }
   if (pos < text.length) parts.push({ text: text.slice(pos), mark: false });
   return (
-    <p className="passage-text">
+    <p className="passage-text" tabIndex={0} role="group" aria-label="Filing passage text">
       {parts.map((p, i) => (p.mark ? <mark key={i}>{p.text}</mark> : <span key={i}>{p.text}</span>))}
     </p>
   );

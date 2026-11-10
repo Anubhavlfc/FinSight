@@ -259,7 +259,7 @@ def _warnings(run: WorkflowRun, results: dict) -> list[str]:
     inv = results.get("investigation")
     if inv:
         out += list(inv.notes)
-        if inv.not_investigated:
+        if inv.not_investigated and not any("not investigated" in n for n in inv.notes):
             out.append(f"{len(inv.not_investigated)} flagged change(s) were not investigated (budget or limit).")
     rv = run.stats.get("review") or {}
     if rv.get("needs_analyst_attention"):

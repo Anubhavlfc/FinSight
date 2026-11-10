@@ -437,8 +437,17 @@
 }
 
 @media (max-width: 720px) {
+  .landing-nav-inner {
+    flex-wrap: wrap;
+    padding-block: 8px 4px;
+    min-height: 0;
+  }
+
+  /* The section links move to their own row under the wordmark. */
   .landing-nav nav {
-    display: none;
+    order: 3;
+    flex: 1 0 100%;
+    margin-left: -12px;
   }
 
   .landing-nav-inner .btn {

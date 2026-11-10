@@ -218,6 +218,14 @@ def create_app(settings: Settings | None = None, api: ApiSettings | None = None,
                             "Runs are stored on the server; a redeploy without persistent storage removes them."])
         return run
 
+    def load_with_activity(run_id: str, st: Store) -> tuple[WorkflowRun, bool]:
+        """The run and whether a worker owns it. The flag is read first: a worker saves the final
+        state before it lets go of the run, so "not active" read before the load guarantees the
+        loaded state is the one the worker left. The other order can pair a mid-run state with
+        "not active" and misreport a run that just finished as interrupted."""
+        active = _valid_run_id(run_id) and svc.jobs.is_active(run_id)
+        return get_run(run_id, st), active
+
     def source_errors(exc: Exception) -> ApiError:
         if isinstance(exc, LiveUnavailable):
             return ApiError(503, "live_unavailable",
@@ -338,24 +346,25 @@ def create_app(settings: Settings | None = None, api: ApiSettings | None = None,
         out = []
         with open_store() as st:
             for row in st.list_runs(limit):
+                active = svc.jobs.is_active(row[0])  # read before the run, see load_with_activity
                 run = st.load_run(row[0])
                 if run is not None:
-                    out.append(build_summary(run, st, svc.jobs.is_active(run.id)))
+                    out.append(build_summary(run, st, active))
         return s.RunList(runs=out)
 
     @app.get("/api/runs/{run_id}", response_model=s.RunStatus, tags=["runs"],
              responses={404: {"model": s.ErrorBody}})
     def run_status(run_id: str):
         with open_store() as st:
-            run = get_run(run_id, st)
-            return build_status(run, load_results(st, run.id), svc.jobs.is_active(run.id), settings)
+            run, active = load_with_activity(run_id, st)
+            return build_status(run, load_results(st, run.id), active, settings)
 
     @app.get("/api/runs/{run_id}/result", response_model=s.RunResult, tags=["runs"],
              responses={404: {"model": s.ErrorBody}, 409: {"model": s.ErrorBody}})
     def run_result(run_id: str):
         with open_store() as st:
-            run = get_run(run_id, st)
-            result = build_result(run, st, settings, svc.jobs.is_active(run.id))
+            run, active = load_with_activity(run_id, st)
+            result = build_result(run, st, settings, active)
         if result is None:
             raise ApiError(409, "not_ready", f"This analysis has no results yet (state {run.state.value}).",
                            ["Follow its progress on the run page."])
@@ -445,6 +454,9 @@ def create_app(settings: Settings | None = None, api: ApiSettings | None = None,
                 immutable = path.startswith("assets/")
                 return FileResponse(target, headers={"Cache-Control": "public, max-age=31536000, immutable"
                                                      if immutable else "no-cache"})
+            if Path(path).suffix:
+                # A missing asset must not come back as the app shell with a 200.
+                raise ApiError(404, "not_found", f"No file at /{path[:80]}.")
             return FileResponse(index, headers={"Cache-Control": "no-cache"})
 
     return app

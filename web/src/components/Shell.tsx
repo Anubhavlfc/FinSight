@@ -17,11 +17,13 @@ export function ServicePill() {
   }
   if (service.kind === "offline") {
     return (
-      <button type="button" className="service-pill is-off" onClick={retry} title="Check the analysis service again">
+      <span className="service-pill is-off">
         <Icon name="alert" size={13} />
         <span role="status">Service offline</span>
-        <span className="service-action">Retry</span>
-      </button>
+        <button type="button" className="service-action" onClick={retry} aria-label="Service offline. Check again">
+          Retry
+        </button>
+      </span>
     );
   }
   const live = service.health.live_data.available;

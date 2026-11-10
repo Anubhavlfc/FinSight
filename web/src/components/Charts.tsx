@@ -173,7 +173,7 @@ function Plot({ chart }: { chart: Chart }) {
 function ValuesTable({ chart }: { chart: Chart }) {
   const fmt = formatter(chart.unit);
   return (
-    <div className="table-scroll">
+    <div className="table-scroll" tabIndex={0} role="group" aria-label="Scrollable table">
       <table className="data">
         <caption>
           {chart.title} ({chart.unit})

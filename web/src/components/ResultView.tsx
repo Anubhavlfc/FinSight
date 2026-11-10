@@ -60,7 +60,7 @@ export function MetricTile({ metric }: { metric: KeyMetric }) {
             {metric.unit_text && <span className="metric-unit">{metric.unit_text}</span>}
           </>
         ) : (
-          <span className="metric-na">{metric.value_text}</span>
+          <span className="metric-na">Not available</span>
         )}
       </p>
       <p className="metric-compare">
@@ -96,7 +96,7 @@ function shortDisplay(text: string): string {
 
 export function FinancialTable({ table }: { table: DataTable }) {
   return (
-    <div className="table-scroll">
+    <div className="table-scroll" tabIndex={0} role="group" aria-label="Scrollable table">
       <table className="data">
         <caption>{table.caption}</caption>
         <thead>
@@ -179,7 +179,7 @@ function Downloads({ downloads, source }: { downloads: DownloadInfo[]; source: R
       {groups.filter(([, items]) => items.length > 0).map(([title, items]) => (
         <section key={title} className="panel">
           <div className="panel-head"><h3>{title}</h3><span className="muted num">{items.length} file{items.length === 1 ? "" : "s"}</span></div>
-          <ul>
+          <ul className="download-list">
             {items.map((d) => (
               <li key={d.name}>
                 <a href={url(d.name)} download={d.name.replace("/", "-")} className="download">
@@ -359,17 +359,17 @@ export function ResultView({ result, source, banner, onStatus }: ResultViewProps
               </dl>
               {overview.question && <p className="question"><span className="muted">Analysis question:</span> {overview.question}</p>}
             </div>
-            <div className="table-scroll">
+            <div className="table-scroll" tabIndex={0} role="group" aria-label="Scrollable table">
               <table className="data">
                 <caption className="pad">Fiscal years analysed and the 10-K that defines each one</caption>
                 <thead><tr><th scope="col">Fiscal year</th><th scope="col">Period</th><th scope="col">10-K filed</th><th scope="col">Accession</th></tr></thead>
                 <tbody>
                   {overview.periods.map((p) => (
                     <tr key={p.label}>
-                      <th scope="row" className="num">{p.label}</th>
-                      <td className="num">{p.start_date ? `${formatDate(p.start_date)} to ` : "ended "}{formatDate(p.end_date)}</td>
-                      <td className="num">{formatDate(p.filed)}</td>
-                      <td className="mono">{p.filing_url ? <ExternalLink href={p.filing_url}>{p.accession}</ExternalLink> : p.accession}</td>
+                      <th scope="row">{p.label}</th>
+                      <td className="num left">{p.start_date ? `${formatDate(p.start_date)} to ` : "ended "}{formatDate(p.end_date)}</td>
+                      <td className="num left">{formatDate(p.filed)}</td>
+                      <td className="mono nowrap">{p.filing_url ? <ExternalLink href={p.filing_url}>{p.accession}</ExternalLink> : p.accession}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -378,18 +378,18 @@ export function ResultView({ result, source, banner, onStatus }: ResultViewProps
           </div>
           <div className="overview-side">
             <ReviewPanel result={result} source={source} onStatus={onStatus} />
-            {overview.headline.length > 0 && (
-              <section className="panel">
-                <div className="panel-head"><h3>Summary</h3><Badge icon="calc">Calculated</Badge></div>
-                <div className="panel-body"><ul className="bullets">{overview.headline.map((h) => <li key={h} className="num">{h}</li>)}</ul></div>
-              </section>
+            {status.warnings.length > 0 && (
+              <Notice tone="amber" title={`${status.warnings.length} thing${status.warnings.length === 1 ? "" : "s"} to know before relying on this report`}>
+                <ul>{status.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+              </Notice>
             )}
           </div>
         </div>
-        {status.warnings.length > 0 && (
-          <Notice tone="amber" title={`${status.warnings.length} thing${status.warnings.length === 1 ? "" : "s"} to know before relying on this report`}>
-            <ul>{status.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
-          </Notice>
+        {overview.headline.length > 0 && (
+          <section className="panel summary-panel">
+            <div className="panel-head"><h3>Summary</h3><Badge icon="calc">Calculated</Badge></div>
+            <div className="panel-body"><ul className="bullets two-col">{overview.headline.map((h) => <li key={h} className="num">{h}</li>)}</ul></div>
+          </section>
         )}
       </Section>
 

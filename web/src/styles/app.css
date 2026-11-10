@@ -133,6 +133,11 @@
 }
 
 .service-pill .service-action {
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  cursor: pointer;
   color: var(--teal-strong);
   text-decoration: underline;
   text-underline-offset: 3px;
@@ -307,7 +312,7 @@ main#main:focus {
 
 .seg {
   display: inline-flex;
-  flex-wrap: wrap;
+  flex: none;
   padding: 2px;
   border: 1px solid var(--line-strong);
   border-radius: var(--radius);
@@ -483,7 +488,7 @@ main#main:focus {
   align-items: center;
   gap: 6px;
   padding: 3px 10px;
-  border: 1px solid var(--line-strong);
+  border: 1px solid var(--control-line);
   border-radius: 999px;
   background: transparent;
   color: var(--ink-2);
@@ -989,6 +994,25 @@ main#main:focus {
   gap: 16px;
 }
 
+.overview-side .notice {
+  margin: 0;
+}
+
+.summary-panel {
+  margin-top: 16px;
+}
+
+.bullets.two-col {
+  display: block;
+  columns: 2 340px;
+  column-gap: 40px;
+}
+
+.bullets.two-col li {
+  break-inside: avoid;
+  margin-bottom: 6px;
+}
+
 caption.pad {
   padding: 12px 12px 6px !important;
 }
@@ -1024,9 +1048,14 @@ caption.pad {
 }
 
 .metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(236px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
+}
+
+.metrics > * {
+  flex: 1 1 236px;
+  min-width: 0;
 }
 
 .metric {
@@ -1454,8 +1483,11 @@ caption.pad {
 }
 
 .passage-text {
-  max-height: 260px;
+  max-height: 320px;
   overflow-y: auto;
+  padding-right: 8px;
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
   color: var(--ink-2);
   font-family: var(--font-serif);
   font-size: 14.5px;
@@ -1604,9 +1636,22 @@ caption.pad {
 
 .downloads {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 14px;
-  align-items: start;
+}
+
+.download-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  border-radius: 0 0 var(--radius-lg) var(--radius-lg);
+  overflow: hidden;
+}
+
+/* Each cell draws its right and bottom rule; the negative margin tucks the outer ones under the clip. */
+.download-list li {
+  display: grid;
+  margin: 0 -1px -1px 0;
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
 }
 
 .download {
@@ -1615,13 +1660,8 @@ caption.pad {
   gap: 12px;
   align-items: center;
   padding: 10px 18px;
-  border-bottom: 1px solid var(--line);
   color: var(--ink);
   text-decoration: none;
-}
-
-.downloads li:last-child .download {
-  border-bottom: 0;
 }
 
 .download:hover {
@@ -1758,9 +1798,7 @@ caption.pad {
 }
 
 .formats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  overflow-wrap: anywhere;
 }
 
 .report-action {
@@ -1768,10 +1806,33 @@ caption.pad {
   white-space: nowrap;
 }
 
+table.reports {
+  min-width: 960px;
+  table-layout: fixed;
+}
+
 table.reports td,
 table.reports th {
   vertical-align: middle;
   padding-block: 11px;
+}
+
+/* Fixed widths keep the two archive tables aligned with each other. */
+table.reports .c-period { width: 128px; }
+table.reports .c-created { width: 122px; }
+table.reports .c-run { width: 118px; }
+table.reports .c-review { width: 194px; }
+table.reports .c-files { width: 132px; }
+table.reports .c-open { width: 136px; }
+
+table.reports td.created {
+  white-space: normal;
+  text-align: left;
+}
+
+table.reports .formats {
+  color: var(--ink-2);
+  font-size: 12px;
 }
 
 /* ---------------------------------------------------------------- footer */
@@ -1914,10 +1975,17 @@ table.reports th {
     grid-column: 2;
   }
 
-  .downloads {
+  .download-list {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  .kv > div {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+
+@media (max-width: 900px) {
   /* The archive becomes one card per report. */
   table.reports thead {
     position: absolute;
@@ -1933,6 +2001,10 @@ table.reports th {
   table.reports th,
   table.reports td {
     display: block;
+  }
+
+  table.reports {
+    min-width: 0;
   }
 
   table.reports tr {
@@ -1955,16 +2027,7 @@ table.reports th {
     font-size: 12.5px;
   }
 
-  table.reports .formats {
-    display: inline-flex;
-  }
-
   .report-action {
     padding-top: 8px !important;
-  }
-
-  .kv > div {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
   }
 }

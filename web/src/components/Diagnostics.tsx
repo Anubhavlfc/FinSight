@@ -59,7 +59,7 @@ export function Diagnostics({ source, refreshKey = "" }: { source: ResultSource;
 
       <section className="panel">
         <div className="panel-head"><h3>State transitions</h3><span className="muted">{d.transitions.length} recorded</span></div>
-        <div className="table-scroll">
+        <div className="table-scroll" tabIndex={0} role="group" aria-label="Scrollable table">
           <table className="data">
             <thead><tr><th scope="col">Time (UTC)</th><th scope="col">From</th><th scope="col">To</th><th scope="col">Reason</th></tr></thead>
             <tbody>
@@ -129,7 +129,7 @@ export function Diagnostics({ source, refreshKey = "" }: { source: ResultSource;
 
       <section className="panel">
         <div className="panel-head"><h3>Source documents</h3><span className="muted">SHA-256 of the bytes each figure was read from</span></div>
-        <div className="table-scroll">
+        <div className="table-scroll" tabIndex={0} role="group" aria-label="Scrollable table">
           <table className="data">
             <thead><tr><th scope="col">Kind</th><th scope="col">URL</th><th scope="col">Retrieved (UTC)</th><th scope="col">SHA-256</th></tr></thead>
             <tbody>

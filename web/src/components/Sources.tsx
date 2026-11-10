@@ -70,7 +70,7 @@ export function Sources({ result }: { result: RunResult }) {
               <input id="calc-filter" className="input" type="search" placeholder="Filter by metric, period or formula" value={filter} onChange={(e) => setFilter(e.target.value)} />
               <p className="muted num" role="status">{calcs.length} of {result.calculations.length} metrics</p>
             </div>
-            <div className="table-scroll tall">
+            <div className="table-scroll tall" tabIndex={0} role="group" aria-label="Scrollable table">
               <table className="data">
                 <caption>Every metric with its formula and inputs. Reported figures are passed through; calculated measures are marked.</caption>
                 <thead><tr><th scope="col">Metric</th><th scope="col">Period</th><th scope="col" className="num">Value</th><th scope="col">Formula</th><th scope="col">Inputs and notes</th></tr></thead>
@@ -100,7 +100,7 @@ export function Sources({ result }: { result: RunResult }) {
               {result.missing.length === 0 ? (
                 <p className="muted">Every figure shown in the dashboard was available for all fiscal years.</p>
               ) : (
-                <div className="table-scroll">
+                <div className="table-scroll" tabIndex={0} role="group" aria-label="Scrollable table">
                   <table className="data">
                     <thead><tr><th scope="col">Figure</th><th scope="col">Period</th><th scope="col">Status</th><th scope="col">Reason</th></tr></thead>
                     <tbody>
@@ -150,7 +150,7 @@ export function Sources({ result }: { result: RunResult }) {
         )}
 
         {tab === "documents" && (
-          <div className="table-scroll">
+          <div className="table-scroll" tabIndex={0} role="group" aria-label="Scrollable table">
             <table className="data">
               <caption>Documents the figures and passages were read from, with retrieval time and content hash.</caption>
               <thead><tr><th scope="col">Document</th><th scope="col">Filing</th><th scope="col">Retrieved</th><th scope="col">SHA-256</th></tr></thead>

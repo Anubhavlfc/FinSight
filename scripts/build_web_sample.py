@@ -69,6 +69,7 @@ def build(client: TestClient, home: Path, sample_id: str, identifier: str, title
     (out / "diagnostics.json").write_text(json.dumps(diagnostics, separators=(",", ":")))
     print(f"{sample_id}: {status['state']}, {len(result['changes'])} changes, "
           f"{sum(f.stat().st_size for f in out.rglob('*') if f.is_file()) // 1024} KB")
+    title = title or result["overview"]["company"]["name"]
     return {"id": sample_id, "title": title, "description": description,
             "generated_at": datetime.now(timezone.utc).isoformat(), "summary": summary}
 
@@ -89,7 +90,7 @@ def main() -> int:
                 "Synthetic company with a restatement, a loss-to-profit swing and negative free cash flow.")
             for ticker in args.live:
                 sid = ticker.lower().replace(".", "-")
-                existing[sid] = build(client, home, sid, ticker, ticker.upper(),
+                existing[sid] = build(client, home, sid, ticker, "",
                                       "Cached run on real SEC filings. Not refreshed automatically.")
     TARGET.mkdir(parents=True, exist_ok=True)
     ordered = [existing.pop("demo")] + sorted(existing.values(), key=lambda e: e["id"])

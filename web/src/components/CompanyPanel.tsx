@@ -426,7 +426,7 @@ export function CompanyPanel({ onSubmitted }: { onSubmitted?: () => void }) {
           </>
         )}
       </button>
-      <p className="hint center">
+      <p className="hint">
         {health
           ? `Runs in the background. Up to ${health.limits.runs_per_hour} new analyses per hour from one address.`
           : "Runs in the background on the analysis service."}
