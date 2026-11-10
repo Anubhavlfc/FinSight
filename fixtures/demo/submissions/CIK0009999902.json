@@ -1,0 +1,35 @@
+{
+ "_fixture_notice": "SYNTHETIC FIXTURE - NOT REAL DATA",
+ "cik": "9999902",
+ "entityType": "operating",
+ "sic": "6022",
+ "sicDescription": "State Commercial Banks",
+ "name": "SAMPLE BANK CORP (SYNTHETIC FIXTURE)",
+ "tickers": [
+  "SBNK"
+ ],
+ "exchanges": [
+  "SYNTH"
+ ],
+ "fiscalYearEnd": "1231",
+ "filings": {
+  "recent": {
+   "accessionNumber": [
+    "0009999902-26-000001"
+   ],
+   "filingDate": [
+    "2026-02-20"
+   ],
+   "reportDate": [
+    "2025-12-31"
+   ],
+   "form": [
+    "10-K"
+   ],
+   "primaryDocument": [
+    "sbnk-20251231.htm"
+   ]
+  },
+  "files": []
+ }
+}

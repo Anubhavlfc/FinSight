@@ -1,0 +1,17 @@
+{
+ "0": {
+  "cik_str": 9999901,
+  "ticker": "DEMO",
+  "title": "DEMO ANALYTICS CORP (SYNTHETIC FIXTURE)"
+ },
+ "1": {
+  "cik_str": 9999902,
+  "ticker": "SBNK",
+  "title": "SAMPLE BANK CORP (SYNTHETIC FIXTURE)"
+ },
+ "2": {
+  "cik_str": 9999903,
+  "ticker": "DROB",
+  "title": "DEMO ROBOTICS INC (SYNTHETIC FIXTURE)"
+ }
+}

@@ -1,0 +1,78 @@
+# FinSight runtime settings. Every value here can be changed without code edits.
+# Environment variables (see README) override the SEC identity and file locations.
+
+[sec]
+# SEC asks automated clients to declare who they are. Set FINSIGHT_SEC_USER_AGENT,
+# e.g. "FinSight research your-name@your-domain.com". It is never logged.
+max_requests_per_second = 5        # SEC's published ceiling is 10; we stay well below it
+timeout_seconds = 30
+max_attempts = 3                   # total attempts for transient failures (1 try + 2 retries)
+backoff_base_seconds = 1.0
+backoff_max_seconds = 30.0
+max_retry_after_seconds = 60.0
+# Filing history is small and tells us whether a newer filing exists, so it is
+# re-checked on every live run unless it was fetched within this many seconds.
+submissions_ttl_seconds = 3600
+# Older filing-history pages are only fetched when the recent list is too short.
+max_history_pages = 3
+
+[periods]
+# A duration fact counts as annual only if it spans this many days (inclusive)
+# and ends within `end_date_tolerance_days` of the fiscal year end from the 10-K.
+annual_min_days = 350
+annual_max_days = 380
+end_date_tolerance_days = 3
+# Consecutive fiscal year ends should be roughly a year apart.
+min_gap_days = 350
+max_gap_days = 380
+
+[validation]
+# Rounding-aware tolerance: a relationship holds if |difference| <= max(abs, rel * |expected|).
+# Filers usually present statements in millions, so sums of rounded lines can be off by a few million.
+abs_tolerance_usd = 5_000_000
+rel_tolerance = 0.001
+# How many times the validator may send work back to collection (e.g. refetch
+# company facts that predate the latest 10-K). Keeps recovery loops bounded.
+max_recovery_attempts = 1
+
+[analysis]
+# Investigation triggers. These are tunable settings, not financial standards.
+revenue_change_pct = 10.0
+operating_margin_change_pp = 3.0
+free_cash_flow_change_pct = 20.0
+debt_increase_pct = 25.0
+# Absolute materiality, as a share of latest-year revenue, so small bases
+# do not dominate the ranking.
+materiality_pct_of_revenue = 0.5
+
+[scope]
+# SIC ranges outside the nonfinancial operating-company profile.
+[[scope.unsupported_sic_ranges]]
+low = 6000
+high = 6199
+profile = "bank_or_credit_institution"
+reason = "Banks and credit institutions are analysed with net interest margin, capital ratios and credit quality. Gross margin, free cash flow and current ratio are not meaningful for them."
+
+[[scope.unsupported_sic_ranges]]
+low = 6200
+high = 6299
+profile = "broker_dealer_or_exchange"
+reason = "Broker-dealers and exchanges have balance sheets dominated by client and trading assets, so operating-company ratios mislead."
+
+[[scope.unsupported_sic_ranges]]
+low = 6300
+high = 6499
+profile = "insurer"
+reason = "Insurers are analysed with combined ratio, reserves and investment income. Operating-company margins and free cash flow are not meaningful for them."
+
+[[scope.unsupported_sic_ranges]]
+low = 6500
+high = 6799
+profile = "real_estate_or_investment_vehicle"
+reason = "REITs and investment vehicles need FFO/NAV-style metrics that this profile does not provide."
+
+[runtime]
+cache_dir = ".finsight/cache"
+database = ".finsight/finsight.sqlite3"
+output_dir = "out"
+fixtures_dir = "fixtures/demo"
