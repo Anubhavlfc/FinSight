@@ -1,0 +1,10 @@
+series,fiscal_period,value_pct_of_revenue,metric_id
+Gross margin,FY2024,60.0,metric:gross_margin:FY2024
+Gross margin,FY2025,61.016949152542374,metric:gross_margin:FY2025
+Gross margin,FY2026,58.03066989507668,metric:gross_margin:FY2026
+Operating margin,FY2024,15.0,metric:operating_margin:FY2024
+Operating margin,FY2025,19.491525423728813,metric:operating_margin:FY2025
+Operating margin,FY2026,16.545601291364004,metric:operating_margin:FY2026
+Net margin,FY2024,-2.0,metric:net_margin:FY2024
+Net margin,FY2025,12.711864406779661,metric:net_margin:FY2025
+Net margin,FY2026,12.9136400322841,metric:net_margin:FY2026

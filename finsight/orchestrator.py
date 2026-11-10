@@ -96,7 +96,11 @@ def new_run_id() -> str:
 
 class Orchestrator:
     def __init__(self, settings: Settings, store: Store, source_factory: SourceFactory,
-                 provider_factory: ProviderFactory | None = None):
+                 provider_factory: ProviderFactory | None = None, budget_seconds: float | None = None):
+        # ``budget_seconds`` is a wall-clock budget for one drive of a run. It is checked between
+        # stages, so a stage that is already running finishes (stages have their own timeouts and
+        # LLM budgets); the run then stops as FAILED and can be resumed.
+        self.budget_seconds = budget_seconds
         self.settings = settings
         self.store = store
         self.source_factory = source_factory
@@ -105,9 +109,20 @@ class Orchestrator:
         self._provider: LLMProvider | None = None
 
     # ---- public API ---------------------------------------------------------------------
-    def start(self, request: AnalysisRequest) -> WorkflowRun:
+    def create(self, request: AnalysisRequest) -> WorkflowRun:
+        """Store a new run without executing it, so a caller can hand its ID out before the work starts."""
         run = WorkflowRun(id=new_run_id(), request=request)
         self.store.save_run(run)
+        return run
+
+    def start(self, request: AnalysisRequest) -> WorkflowRun:
+        return self._drive(self.create(request))
+
+    def drive(self, run_id: str) -> WorkflowRun:
+        """Run a stored run until it reaches a terminal state (used by background workers)."""
+        run = self.store.load_run(run_id)
+        if run is None:
+            raise KeyError(f"No run {run_id}")
         return self._drive(run)
 
     def resume(self, run_id: str, identifier: str | None = None) -> WorkflowRun:
@@ -158,6 +173,10 @@ class Orchestrator:
             guard += 1
             if guard > 40:  # hard stop: no loop in this workflow should get near this
                 self._fail(run, run.state, "workflow exceeded its step limit")
+                break
+            if self.budget_seconds is not None and time.monotonic() - started > self.budget_seconds:
+                self._fail(run, run.state, f"execution budget of {self.budget_seconds:.0f} seconds used up at "
+                                           f"{run.state.value} (resume to continue from this stage)")
                 break
             step = steps.get(run.state)
             if step is None:

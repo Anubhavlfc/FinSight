@@ -1,0 +1,54 @@
+[
+  {
+    "id": "demo",
+    "title": "Demo Analytics Corp",
+    "description": "Synthetic company with a restatement, a loss-to-profit swing and negative free cash flow.",
+    "generated_at": "2026-11-10T03:05:40.139287+00:00",
+    "summary": {
+      "id": "run-20261110-030539-00452f",
+      "state": "READY_FOR_REVIEW",
+      "phase": "ready_for_review",
+      "is_active": false,
+      "identifier": "0009999901",
+      "company": {
+        "cik": "0009999901",
+        "name": "DEMO ANALYTICS CORP (SYNTHETIC FIXTURE)",
+        "ticker": "DEMO",
+        "tickers": [
+          "DEMO"
+        ]
+      },
+      "periods": [
+        "FY2024",
+        "FY2025",
+        "FY2026"
+      ],
+      "synthetic": true,
+      "created_at": "2026-11-10T03:05:39.019586Z",
+      "updated_at": "2026-11-10T03:05:39.213951Z",
+      "review": {
+        "state": "awaiting_review",
+        "label": "Awaiting analyst review",
+        "passed": true,
+        "revision_cycles": 0,
+        "unresolved_defects": 0,
+        "approved_at": null,
+        "approval_note": null
+      },
+      "investigator": {
+        "name": "Rule-based investigator (no LLM)",
+        "is_rule_based": true,
+        "note": "offline stub requested"
+      },
+      "has_results": true,
+      "has_report": true,
+      "formats": [
+        "HTML",
+        "Markdown",
+        "CSV",
+        "JSON",
+        "PNG"
+      ]
+    }
+  }
+]

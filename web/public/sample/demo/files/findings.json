@@ -1,0 +1,888 @@
+{
+  "findings": [
+    {
+      "id": "finding:change:net_income_transition:FY2024->FY2025",
+      "change_flag_id": "change:net_income_transition:FY2024->FY2025",
+      "calculated_observation": "Net income moved from loss to profit (FY2024->FY2025). Net income: -$20 million in FY2024, $150 million in FY2025.",
+      "management_explanation": "The 10-K states: The prior-year net loss reflected a $135 million charge for the settlement of patent litigation that did not recur in fiscal year 2025.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [],
+      "assessment": "favorable",
+      "evidence_status": "supported",
+      "status_reason": "management explanation backed by verified quotes",
+      "quotes": [
+        {
+          "passage_id": "psg:0009999901-25-000010:item_7:000",
+          "quote": "The prior-year net loss reflected a $135 million charge for the settlement of patent litigation that did not recur in fiscal year 2025.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:net_income:FY2024",
+        "metric:net_income:FY2025"
+      ],
+      "passage_ids": [
+        "psg:0009999901-25-000010:item_7:000"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "net_income",
+            "period": "FY2024"
+          },
+          "ok": true,
+          "summary": "metric metric:net_income:FY2024 = -20000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "net_income",
+            "period": "FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:net_income:FY2025 = 150000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "net income net loss charge compared",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2025",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'net income net loss charge compared' -> 1 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-25-000010:item_7:000"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-25-000010:item_7:000"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: The prior-year net loss reflected a $135 million charge for the settlement of patent litigation that did not recur in fiscal year 2025.",
+            "quotes": [
+              {
+                "passage_id": "psg:0009999901-25-000010:item_7:000",
+                "quote": "The prior-year net loss reflected a $135 million charge for the settlement of patent litigation that did not recur in fiscal year 2025."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [],
+            "assessment": "favorable",
+            "proposed_evidence_status": "supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:capex_change:FY2025->FY2026",
+      "change_flag_id": "change:capex_change:FY2025->FY2026",
+      "calculated_observation": "Capital expenditure rose 233.3% (FY2025->FY2026). Capital expenditure: $90 million in FY2025, $300 million in FY2026.",
+      "management_explanation": "The 10-K states: Additions to property and equipment increased $210 million to $300 million, primarily reflecting construction of our new data centre in Ohio.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [],
+      "assessment": "ambiguous",
+      "evidence_status": "supported",
+      "status_reason": "management explanation backed by verified quotes",
+      "quotes": [
+        {
+          "passage_id": "psg:0009999901-26-000010:item_7:000",
+          "quote": "Additions to property and equipment increased $210 million to $300 million, primarily reflecting construction of our new data centre in Ohio.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:capital_expenditure_growth:FY2025->FY2026",
+        "metric:capital_expenditure_change:FY2025->FY2026",
+        "metric:capital_expenditure:FY2025",
+        "metric:capital_expenditure:FY2026"
+      ],
+      "passage_ids": [
+        "psg:0009999901-26-000010:item_7:000"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "capital_expenditure_growth",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:capital_expenditure_growth:FY2025->FY2026 = 233.3333333333333333333333333333333 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "capital_expenditure_change",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:capital_expenditure_change:FY2025->FY2026 = 210000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "additions to property and equipment capital expenditures data center",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2026",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'additions to property and equipment capital expenditures data center' -> 1 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-26-000010:item_7:000"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-26-000010:item_7:000"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: Additions to property and equipment increased $210 million to $300 million, primarily reflecting construction of our new data centre in Ohio.",
+            "quotes": [
+              {
+                "passage_id": "psg:0009999901-26-000010:item_7:000",
+                "quote": "Additions to property and equipment increased $210 million to $300 million, primarily reflecting construction of our new data centre in Ohio."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [],
+            "assessment": "ambiguous",
+            "proposed_evidence_status": "supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:free_cash_flow_change:FY2025->FY2026",
+      "change_flag_id": "change:free_cash_flow_change:FY2025->FY2026",
+      "calculated_observation": "Free cash flow fell 135.3% (FY2025->FY2026). Free cash flow: $170 million in FY2025, -$60 million in FY2026.",
+      "management_explanation": "The 10-K states: Cash flows from operating activities decreased $20 million to $240 million, primarily due to higher cash tax payments. Additions to property and equipment increased $210 million to $300 million, primarily reflecting construction of our new data centre in Ohio.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [],
+      "assessment": "unfavorable",
+      "evidence_status": "supported",
+      "status_reason": "management explanation backed by verified quotes",
+      "quotes": [
+        {
+          "passage_id": "psg:0009999901-26-000010:item_7:000",
+          "quote": "Cash flows from operating activities decreased $20 million to $240 million, primarily due to higher cash tax payments.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        },
+        {
+          "passage_id": "psg:0009999901-26-000010:item_7:000",
+          "quote": "Additions to property and equipment increased $210 million to $300 million, primarily reflecting construction of our new data centre in Ohio.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:free_cash_flow_growth:FY2025->FY2026",
+        "metric:free_cash_flow_change:FY2025->FY2026",
+        "metric:free_cash_flow:FY2025",
+        "metric:free_cash_flow:FY2026"
+      ],
+      "passage_ids": [
+        "psg:0009999901-26-000010:item_7:000"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "free_cash_flow_growth",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:free_cash_flow_growth:FY2025->FY2026 = -135.2941176470588235294117647058824 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "free_cash_flow_change",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:free_cash_flow_change:FY2025->FY2026 = -230000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "cash flows from operating activities property and equipment capital expenditures",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2026",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'cash flows from operating activities property and equipment capital expenditures' -> 1 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-26-000010:item_7:000"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-26-000010:item_7:000"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: Cash flows from operating activities decreased $20 million to $240 million, primarily due to higher cash tax payments. Additions to property and equipment increased $210 million to $300 million, primarily reflecting construction of our new data centre in Ohio.",
+            "quotes": [
+              {
+                "passage_id": "psg:0009999901-26-000010:item_7:000",
+                "quote": "Cash flows from operating activities decreased $20 million to $240 million, primarily due to higher cash tax payments."
+              },
+              {
+                "passage_id": "psg:0009999901-26-000010:item_7:000",
+                "quote": "Additions to property and equipment increased $210 million to $300 million, primarily reflecting construction of our new data centre in Ohio."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [],
+            "assessment": "unfavorable",
+            "proposed_evidence_status": "supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:debt_increase:FY2025->FY2026",
+      "change_flag_id": "change:debt_increase:FY2025->FY2026",
+      "calculated_observation": "Interest-bearing debt rose 52.4% (FY2025->FY2026). Interest bearing debt: $630 million in FY2025, $960 million in FY2026.",
+      "management_explanation": "The 10-K states: In March 2026 we issued $480 million of 5.25% senior notes due 2033 to fund data centre construction.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [],
+      "assessment": "ambiguous",
+      "evidence_status": "supported",
+      "status_reason": "management explanation backed by verified quotes",
+      "quotes": [
+        {
+          "passage_id": "psg:0009999901-26-000010:item_7:000",
+          "quote": "In March 2026 we issued $480 million of 5.25% senior notes due 2033 to fund data centre construction.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:interest_bearing_debt_growth:FY2025->FY2026",
+        "metric:interest_bearing_debt_change:FY2025->FY2026",
+        "metric:interest_bearing_debt:FY2025",
+        "metric:interest_bearing_debt:FY2026"
+      ],
+      "passage_ids": [
+        "psg:0009999901-26-000010:item_7:000"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "interest_bearing_debt_growth",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:interest_bearing_debt_growth:FY2025->FY2026 = 52.38095238095238095238095238095238 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "interest_bearing_debt_change",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:interest_bearing_debt_change:FY2025->FY2026 = 330000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "issued notes debt borrowings commercial paper repaid",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2026",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'issued notes debt borrowings commercial paper repaid' -> 2 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-26-000010:item_8/note_9:000"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-26-000010:item_8/note_9:000"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-26-000010:item_7:000"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-26-000010:item_7:000"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: In March 2026 we issued $480 million of 5.25% senior notes due 2033 to fund data centre construction.",
+            "quotes": [
+              {
+                "passage_id": "psg:0009999901-26-000010:item_7:000",
+                "quote": "In March 2026 we issued $480 million of 5.25% senior notes due 2033 to fund data centre construction."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [],
+            "assessment": "ambiguous",
+            "proposed_evidence_status": "supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:free_cash_flow_change:FY2024->FY2025",
+      "change_flag_id": "change:free_cash_flow_change:FY2024->FY2025",
+      "calculated_observation": "Free cash flow rose 41.7% (FY2024->FY2025). Free cash flow: $120 million in FY2024, $170 million in FY2025.",
+      "management_explanation": "The 10-K states: Additions to property and equipment were $90 million, up from $60 million, primarily reflecting the first phase of our data centre expansion.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [
+        "The retrieved 10-K text does not explain the change in operating cash flow."
+      ],
+      "assessment": "favorable",
+      "evidence_status": "partially_supported",
+      "status_reason": "open questions remain",
+      "quotes": [
+        {
+          "passage_id": "psg:0009999901-25-000010:item_7:001",
+          "quote": "Additions to property and equipment were $90 million, up from $60 million, primarily reflecting the first phase of our data centre expansion.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:free_cash_flow_growth:FY2024->FY2025",
+        "metric:free_cash_flow_change:FY2024->FY2025",
+        "metric:free_cash_flow:FY2024",
+        "metric:free_cash_flow:FY2025"
+      ],
+      "passage_ids": [
+        "psg:0009999901-25-000010:item_7:001"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "free_cash_flow_growth",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:free_cash_flow_growth:FY2024->FY2025 = 41.66666666666666666666666666666667 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "free_cash_flow_change",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:free_cash_flow_change:FY2024->FY2025 = 50000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "cash flows from operating activities property and equipment capital expenditures",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2025",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'cash flows from operating activities property and equipment capital expenditures' -> 2 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-25-000010:item_7:001"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-25-000010:item_7:001"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-25-000010:item_7:000"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-25-000010:item_7:000"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: Additions to property and equipment were $90 million, up from $60 million, primarily reflecting the first phase of our data centre expansion.",
+            "quotes": [
+              {
+                "passage_id": "psg:0009999901-25-000010:item_7:001",
+                "quote": "Additions to property and equipment were $90 million, up from $60 million, primarily reflecting the first phase of our data centre expansion."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [
+              "The retrieved 10-K text does not explain the change in operating cash flow."
+            ],
+            "assessment": "favorable",
+            "proposed_evidence_status": "partially_supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:capex_change:FY2024->FY2025",
+      "change_flag_id": "change:capex_change:FY2024->FY2025",
+      "calculated_observation": "Capital expenditure rose 50.0% (FY2024->FY2025). Capital expenditure: $60 million in FY2024, $90 million in FY2025.",
+      "management_explanation": "The 10-K states: Additions to property and equipment were $90 million, up from $60 million, primarily reflecting the first phase of our data centre expansion.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [],
+      "assessment": "ambiguous",
+      "evidence_status": "supported",
+      "status_reason": "management explanation backed by verified quotes",
+      "quotes": [
+        {
+          "passage_id": "psg:0009999901-25-000010:item_7:001",
+          "quote": "Additions to property and equipment were $90 million, up from $60 million, primarily reflecting the first phase of our data centre expansion.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:capital_expenditure_growth:FY2024->FY2025",
+        "metric:capital_expenditure_change:FY2024->FY2025",
+        "metric:capital_expenditure:FY2024",
+        "metric:capital_expenditure:FY2025"
+      ],
+      "passage_ids": [
+        "psg:0009999901-25-000010:item_7:001"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "capital_expenditure_growth",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:capital_expenditure_growth:FY2024->FY2025 = 50.0 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "capital_expenditure_change",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:capital_expenditure_change:FY2024->FY2025 = 30000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "additions to property and equipment capital expenditures data center",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2025",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'additions to property and equipment capital expenditures data center' -> 2 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-25-000010:item_7:001"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-25-000010:item_7:001"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-25-000010:item_7:000"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-25-000010:item_7:000"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: Additions to property and equipment were $90 million, up from $60 million, primarily reflecting the first phase of our data centre expansion.",
+            "quotes": [
+              {
+                "passage_id": "psg:0009999901-25-000010:item_7:001",
+                "quote": "Additions to property and equipment were $90 million, up from $60 million, primarily reflecting the first phase of our data centre expansion."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [],
+            "assessment": "ambiguous",
+            "proposed_evidence_status": "supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:revenue_change:FY2024->FY2025",
+      "change_flag_id": "change:revenue_change:FY2024->FY2025",
+      "calculated_observation": "Revenue rose 18.0% (FY2024->FY2025). Revenue: $1,000 million in FY2024, $1,180 million in FY2025.",
+      "management_explanation": "The 10-K states: Revenue increased $180 million or 18% to $1,180 million, driven primarily by growth in Cloud Analytics subscriptions, which increased $195 million as new enterprise customers adopted the platform.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [],
+      "assessment": "favorable",
+      "evidence_status": "supported",
+      "status_reason": "management explanation backed by verified quotes",
+      "quotes": [
+        {
+          "passage_id": "psg:0009999901-25-000010:item_7:000",
+          "quote": "Revenue increased $180 million or 18% to $1,180 million, driven primarily by growth in Cloud Analytics subscriptions, which increased $195 million as new enterprise customers adopted the platform.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:revenue_growth:FY2024->FY2025",
+        "metric:revenue_change:FY2024->FY2025",
+        "metric:revenue:FY2024",
+        "metric:revenue:FY2025"
+      ],
+      "passage_ids": [
+        "psg:0009999901-25-000010:item_7:000"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "revenue_growth",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:revenue_growth:FY2024->FY2025 = 18.00 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "revenue_change",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:revenue_change:FY2024->FY2025 = 180000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "revenue increased decreased driven primarily",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2025",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'revenue increased decreased driven primarily' -> 3 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-25-000010:item_7:000"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-25-000010:item_7:000"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-25-000010:item_8/note_14:000"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-25-000010:item_8/note_14:000"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-25-000010:item_7:001"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-25-000010:item_7:001"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: Revenue increased $180 million or 18% to $1,180 million, driven primarily by growth in Cloud Analytics subscriptions, which increased $195 million as new enterprise customers adopted the platform.",
+            "quotes": [
+              {
+                "passage_id": "psg:0009999901-25-000010:item_7:000",
+                "quote": "Revenue increased $180 million or 18% to $1,180 million, driven primarily by growth in Cloud Analytics subscriptions, which increased $195 million as new enterprise customers adopted the platform."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [],
+            "assessment": "favorable",
+            "proposed_evidence_status": "supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:operating_margin_change:FY2024->FY2025",
+      "change_flag_id": "change:operating_margin_change:FY2024->FY2025",
+      "calculated_observation": "Operating margin moved +4.5 percentage points (FY2024->FY2025). Operating margin: 15.0% in FY2024, 19.5% in FY2025.",
+      "management_explanation": "The 10-K states: Operating margin improved because revenue grew faster than operating expenses.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [],
+      "assessment": "favorable",
+      "evidence_status": "supported",
+      "status_reason": "management explanation backed by verified quotes",
+      "quotes": [
+        {
+          "passage_id": "psg:0009999901-25-000010:item_7:000",
+          "quote": "Operating margin improved because revenue grew faster than operating expenses.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:operating_margin_change:FY2024->FY2025",
+        "metric:operating_margin:FY2024",
+        "metric:operating_margin:FY2025",
+        "metric:cost_of_revenue:FY2024",
+        "metric:cost_of_revenue:FY2025",
+        "metric:cost_of_revenue_pct_of_revenue:FY2024",
+        "metric:cost_of_revenue_pct_of_revenue:FY2025",
+        "metric:cost_of_revenue_pct_of_revenue_change:FY2024->FY2025",
+        "metric:general_and_administrative:FY2024",
+        "metric:general_and_administrative:FY2025",
+        "metric:general_and_administrative_pct_of_revenue:FY2024",
+        "metric:general_and_administrative_pct_of_revenue:FY2025",
+        "metric:general_and_administrative_pct_of_revenue_change:FY2024->FY2025",
+        "metric:gross_margin_change:FY2024->FY2025",
+        "metric:research_and_development:FY2024",
+        "metric:research_and_development:FY2025",
+        "metric:research_and_development_pct_of_revenue:FY2024",
+        "metric:research_and_development_pct_of_revenue:FY2025",
+        "metric:research_and_development_pct_of_revenue_change:FY2024->FY2025",
+        "metric:selling_and_marketing:FY2024",
+        "metric:selling_and_marketing:FY2025",
+        "metric:selling_and_marketing_pct_of_revenue:FY2024",
+        "metric:selling_and_marketing_pct_of_revenue:FY2025",
+        "metric:selling_and_marketing_pct_of_revenue_change:FY2024->FY2025"
+      ],
+      "passage_ids": [
+        "psg:0009999901-25-000010:item_7:000"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "operating_margin_change",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:operating_margin_change:FY2024->FY2025 = 4.491525423728813559322033898 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "operating income operating expenses increased margin",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2025",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'operating income operating expenses increased margin' -> 2 hit(s)"
+        },
+        {
+          "step": 1,
+          "tool": "compare_financial_components",
+          "input": {
+            "prior_period": "FY2024",
+            "current_period": "FY2025"
+          },
+          "ok": true,
+          "summary": "compared 5 component(s) FY2024->FY2025"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-25-000010:item_7:000"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-25-000010:item_7:000"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0009999901-25-000010:item_7:001"
+          },
+          "ok": true,
+          "summary": "read psg:0009999901-25-000010:item_7:001"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: Operating margin improved because revenue grew faster than operating expenses.",
+            "quotes": [
+              {
+                "passage_id": "psg:0009999901-25-000010:item_7:000",
+                "quote": "Operating margin improved because revenue grew faster than operating expenses."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [],
+            "assessment": "favorable",
+            "proposed_evidence_status": "supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    }
+  ],
+  "not_investigated": [],
+  "notes": [],
+  "llm_usage": {
+    "provider": "offline-stub (rule-based, no LLM)",
+    "is_stub": true,
+    "model_calls": 24,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cache_read_tokens": 0,
+    "calls_by_purpose": {
+      "investigate:change:net_income_transition:FY2024->FY2025": 3,
+      "investigate:change:capex_change:FY2025->FY2026": 3,
+      "investigate:change:free_cash_flow_change:FY2025->FY2026": 3,
+      "investigate:change:debt_increase:FY2025->FY2026": 3,
+      "investigate:change:free_cash_flow_change:FY2024->FY2025": 3,
+      "investigate:change:capex_change:FY2024->FY2025": 3,
+      "investigate:change:revenue_change:FY2024->FY2025": 3,
+      "investigate:change:operating_margin_change:FY2024->FY2025": 3
+    },
+    "estimated_cost_usd": 0.0,
+    "cost_note": "no LLM used"
+  }
+}

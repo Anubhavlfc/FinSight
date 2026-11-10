@@ -1,0 +1,32 @@
+{
+  "reviews": [
+    {
+      "passed": true,
+      "defects": [],
+      "revision_cycle": 0,
+      "checks_run": [
+        "numbers_match_metrics",
+        "metrics_exist",
+        "citations_resolve",
+        "quotes_verbatim",
+        "explanation_numbers",
+        "status_consistent",
+        "interpretation_hedged",
+        "unavailable_disclosed",
+        "charts_match_metrics",
+        "labels_present",
+        "llm_narrative_review: skipped (offline stub, no LLM available)"
+      ],
+      "needs_analyst_attention": false,
+      "stats": {
+        "claims": 29,
+        "excluded_claims": 0,
+        "numeric_defects": 0,
+        "citation_defects": 0,
+        "findings": 8,
+        "supported_findings": 7,
+        "supported_claim_rate": 0.875
+      }
+    }
+  ]
+}
