@@ -1,0 +1,7 @@
+series,fiscal_period,value_USD_billions,metric_id
+Cash and cash equivalents,FY2024,7.28,metric:cash_and_equivalents:FY2024
+Cash and cash equivalents,FY2025,8.589,metric:cash_and_equivalents:FY2025
+Cash and cash equivalents,FY2026,10.605,metric:cash_and_equivalents:FY2026
+Interest-bearing debt (calculated),FY2024,9.709,metric:interest_bearing_debt:FY2024
+Interest-bearing debt (calculated),FY2025,8.463,metric:interest_bearing_debt:FY2025
+Interest-bearing debt (calculated),FY2026,8.468,metric:interest_bearing_debt:FY2026

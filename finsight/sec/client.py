@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import logging
 import random
+import threading
 import time
 from dataclasses import dataclass, field
 from typing import Callable, Mapping
@@ -84,6 +85,7 @@ class SecHttpClient:
         self._sleep = sleep
         self._rng = rng or random.Random()
         self._last_request_at: float | None = None
+        self._pace_lock = threading.Lock()  # one client may be shared by several worker threads
         self.request_count = 0  # network requests actually sent (for tests and run stats)
 
     @property
@@ -91,12 +93,13 @@ class SecHttpClient:
         return 1.0 / self.settings.max_requests_per_second
 
     def _pace(self) -> None:
-        now = self._clock()
-        if self._last_request_at is not None:
-            wait = self.min_interval - (now - self._last_request_at)
-            if wait > 0:
-                self._sleep(wait)
-        self._last_request_at = self._clock()
+        with self._pace_lock:
+            now = self._clock()
+            if self._last_request_at is not None:
+                wait = self.min_interval - (now - self._last_request_at)
+                if wait > 0:
+                    self._sleep(wait)
+            self._last_request_at = self._clock()
 
     def _backoff(self, attempt: int, retry_after: str | None) -> float:
         if retry_after:

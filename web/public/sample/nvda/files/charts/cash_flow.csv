@@ -1,0 +1,10 @@
+series,fiscal_period,value_USD_billions,metric_id
+Operating cash flow,FY2024,28.09,metric:operating_cash_flow:FY2024
+Operating cash flow,FY2025,64.089,metric:operating_cash_flow:FY2025
+Operating cash flow,FY2026,102.718,metric:operating_cash_flow:FY2026
+Capital expenditure,FY2024,1.069,metric:capital_expenditure:FY2024
+Capital expenditure,FY2025,3.236,metric:capital_expenditure:FY2025
+Capital expenditure,FY2026,6.042,metric:capital_expenditure:FY2026
+Free cash flow (calculated),FY2024,27.021,metric:free_cash_flow:FY2024
+Free cash flow (calculated),FY2025,60.853,metric:free_cash_flow:FY2025
+Free cash flow (calculated),FY2026,96.676,metric:free_cash_flow:FY2026

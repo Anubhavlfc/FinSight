@@ -1,0 +1,20 @@
+passage_id,accession,form,filing_date,fiscal_period,section,char_start,char_end,url,is_fixture,text
+psg:0009999901-25-000010:item_7:000,0009999901-25-000010,10-K,2025-07-30,FY2025,Item 7. Management's Discussion and Analysis (MD&A),1124,2172,fixture://filings/000999990125000010/demo-20250630.htm,True,"Overview
+Fiscal year 2025 compared with fiscal year 2024.
+Revenue
+Revenue increased $180 million or 18% to $1,180 million, driven primarily by growth in Cloud Analytics subscriptions, which increased $195 million as new enterprise customers adopted the platform. On-Premises License revenue decreased $15 million as customers continued to migrate to Cloud Analytics.
+Operating income
+Operating income increased $80 million or 53% to $230 million. Operating margin improved because revenue grew faster than operating expenses. Research and development expenses increased $15 million, driven by headcount growth in our cloud engineering teams. Selling and marketing expenses increased $20 million, reflecting higher sales commissions on Cloud Analytics bookings.
+Net income
+Net income was $150 million in fiscal year 2025 compared with a net loss of $20 million in fiscal year 2024. The prior-year net loss reflected a $135 million charge for the settlement of patent litigation that did not recur in fiscal year 2025.
+Liquidity and capital resources"
+psg:0009999901-26-000010:item_7:000,0009999901-26-000010,10-K,2026-07-29,FY2026,Item 7. Management's Discussion and Analysis (MD&A),1279,2404,fixture://filings/000999990126000010/demo-20260630.htm,True,"Overview
+Fiscal year 2026 compared with fiscal year 2025.
+Revenue
+Revenue increased $59 million or 5% to $1,239 million. Growth slowed as new-customer bookings in Europe were lower than in the prior year.
+Cost of revenue and operating expenses
+Cost of revenue increased $60 million or 13%, driven by higher cloud infrastructure costs as we migrated customers to our hosted platform. Research and development expenses increased $25 million, reflecting investment in new analytics features.
+Liquidity and capital resources
+Cash flows from operating activities decreased $20 million to $240 million, primarily due to higher cash tax payments. Additions to property and equipment increased $210 million to $300 million, primarily reflecting construction of our new data centre in Ohio. As a result, free cash flow, which we define as operating cash flow less additions to property and equipment, was negative $60 million.
+In March 2026 we issued $480 million of 5.25% senior notes due 2033 to fund data centre construction. We used part of the proceeds to repay $100 million of commercial paper and $50 million of maturing notes."
+psg:0009999901-25-000010:item_7:001,0009999901-25-000010,10-K,2025-07-30,FY2025,Item 7. Management's Discussion and Analysis (MD&A),2173,2427,fixture://filings/000999990125000010/demo-20250630.htm,True,"Cash flows from operating activities were $260 million in fiscal year 2025 and $180 million in fiscal year 2024. Additions to property and equipment were $90 million, up from $60 million, primarily reflecting the first phase of our data centre expansion."

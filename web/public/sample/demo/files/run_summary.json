@@ -1,0 +1,155 @@
+{
+  "run_id": "run-20261110-075212-46319c",
+  "state": "READY_FOR_REVIEW",
+  "request": {
+    "identifier": "0009999901",
+    "cutoff_date": "2026-11-01",
+    "latest_fiscal_year": 2026,
+    "num_years": 3,
+    "question": null,
+    "offline": true,
+    "investigate": true,
+    "llm": "stub"
+  },
+  "error": null,
+  "needs_input": null,
+  "stats": {
+    "issues": {
+      "warning": 4,
+      "info": 10
+    },
+    "field_coverage_pct": 85.5,
+    "blocking_issues": 0,
+    "change_flags": 8,
+    "llm_provider": "offline-stub (rule-based, no LLM)",
+    "llm_provider_note": "offline stub requested",
+    "reinvestigate": null,
+    "investigation_complete": true,
+    "llm_usage": {
+      "provider": "offline-stub (rule-based, no LLM)",
+      "is_stub": true,
+      "model_calls": 24,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cache_read_tokens": 0,
+      "calls_by_purpose": {
+        "investigate:change:net_income_transition:FY2024->FY2025": 3,
+        "investigate:change:capex_change:FY2025->FY2026": 3,
+        "investigate:change:free_cash_flow_change:FY2025->FY2026": 3,
+        "investigate:change:debt_increase:FY2025->FY2026": 3,
+        "investigate:change:free_cash_flow_change:FY2024->FY2025": 3,
+        "investigate:change:capex_change:FY2024->FY2025": 3,
+        "investigate:change:revenue_change:FY2024->FY2025": 3,
+        "investigate:change:operating_margin_change:FY2024->FY2025": 3
+      },
+      "estimated_cost_usd": 0.0,
+      "cost_note": "no LLM used"
+    },
+    "findings": {
+      "supported": 7,
+      "partially_supported": 1,
+      "unsupported": 0
+    },
+    "review": {
+      "passed": true,
+      "revision_cycles": 0,
+      "unresolved_defects": 0,
+      "needs_analyst_attention": false,
+      "claims": 29,
+      "excluded_claims": 0,
+      "numeric_defects": 0,
+      "citation_defects": 0,
+      "findings": 8,
+      "supported_findings": 7,
+      "supported_claim_rate": 0.875
+    },
+    "last_drive_seconds": 0.16,
+    "source_network": 0,
+    "source_cache_hits": 0,
+    "source_fixture_reads": 4
+  },
+  "history": [
+    {
+      "from_state": "CREATED",
+      "to_state": "PLANNING",
+      "at": "2026-11-10T07:52:12.334416Z",
+      "reason": "run started"
+    },
+    {
+      "from_state": "PLANNING",
+      "to_state": "COLLECTING",
+      "at": "2026-11-10T07:52:12.340158Z",
+      "reason": "planned DEMO ANALYTICS CORP (SYNTHETIC FIXTURE) (0009999901): FY2024 ending 2024-06-30, FY2025 ending 2025-06-30, FY2026 ending 2026-06-30"
+    },
+    {
+      "from_state": "COLLECTING",
+      "to_state": "VALIDATING",
+      "at": "2026-11-10T07:52:12.347215Z",
+      "reason": "collected 257 candidate XBRL values"
+    },
+    {
+      "from_state": "VALIDATING",
+      "to_state": "ANALYZING",
+      "at": "2026-11-10T07:52:12.357430Z",
+      "reason": "validated: 59 accepted facts, 0 blocking issue(s)"
+    },
+    {
+      "from_state": "ANALYZING",
+      "to_state": "INVESTIGATING",
+      "at": "2026-11-10T07:52:12.363519Z",
+      "reason": "8 change(s) flagged for investigation"
+    },
+    {
+      "from_state": "INVESTIGATING",
+      "to_state": "DRAFTING",
+      "at": "2026-11-10T07:52:12.472432Z",
+      "reason": "investigated 8 change(s)"
+    },
+    {
+      "from_state": "DRAFTING",
+      "to_state": "REVIEWING",
+      "at": "2026-11-10T07:52:12.484491Z",
+      "reason": "report revision 0 drafted with 29 claims"
+    },
+    {
+      "from_state": "REVIEWING",
+      "to_state": "READY_FOR_REVIEW",
+      "at": "2026-11-10T07:52:12.493568Z",
+      "reason": "review passed"
+    }
+  ],
+  "company": {
+    "cik": "0009999901",
+    "name": "DEMO ANALYTICS CORP (SYNTHETIC FIXTURE)",
+    "tickers": [
+      "DEMO"
+    ],
+    "sic": "7372",
+    "sic_description": "Services-Prepackaged Software",
+    "fiscal_year_end": "0630",
+    "state_of_incorporation": "DE"
+  },
+  "fiscal_periods": [
+    {
+      "label": "FY2024",
+      "end_date": "2024-06-30",
+      "start_date": "2023-07-01",
+      "defining_accession": "0009999901-24-000010",
+      "defining_filing_date": "2024-07-30"
+    },
+    {
+      "label": "FY2025",
+      "end_date": "2025-06-30",
+      "start_date": "2024-07-01",
+      "defining_accession": "0009999901-25-000010",
+      "defining_filing_date": "2025-07-30"
+    },
+    {
+      "label": "FY2026",
+      "end_date": "2026-06-30",
+      "start_date": "2025-07-01",
+      "defining_accession": "0009999901-26-000010",
+      "defining_filing_date": "2026-07-29"
+    }
+  ]
+}

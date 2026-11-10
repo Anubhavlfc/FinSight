@@ -1,0 +1,51 @@
+# Optional: publish the frontend as a static showcase on GitHub Pages.
+#
+# GitHub Pages serves files only. It cannot run the Python backend, so this site shows the
+# landing page and the bundled sample analyses, and reports "Service offline" for new runs
+# unless FINSIGHT_API_URL (repository variable) points at a hosted backend whose
+# FINSIGHT_CORS_ORIGINS allows this site's origin. See docs/deployment.md.
+name: pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run build
+        working-directory: web
+        env:
+          # Project Pages are served from /<repository name>/.
+          VITE_BASE: /${{ github.event.repository.name }}/
+          VITE_API_BASE_URL: ${{ vars.FINSIGHT_API_URL }}
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: web/dist
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

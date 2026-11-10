@@ -1,4 +1,4 @@
-# FinSight architecture (Stages 1 and 2)
+# FinSight architecture
 
 FinSight answers: *How has this company performed over its last three completed fiscal
 years, what changed most, and what evidence helps explain those changes?*
@@ -6,7 +6,7 @@ years, what changed most, and what evidence helps explain those changes?*
 Stage 1 delivers the foundation: a reliable, traceable path from a company identifier
 to a validated three-year financial dataset with calculated metrics and ranked changes.
 Stage 2 investigates the ranked changes in the company's 10-K text, writes a cited report
-and reviews it. The dashboard (Stage 3) builds on these contracts.
+and reviews it. Stage 3 puts a web API and a React app on top of the same contracts.
 
 ## Workflow
 
@@ -242,9 +242,74 @@ conservative: in testing it explained 1 of 5 MSFT changes, 0 of 4 for AAPL and K
 the filings do discuss them in less formulaic sentences. That gap is what the Claude
 investigator is for.
 
+## Stage 3: web app
+
+```
+browser (React + TypeScript, web/)
+   │  JSON over HTTP, types generated from docs/openapi.json
+   ▼
+FastAPI (finsight/api/)  ── serves web/dist as static files in production
+   │  schemas.py   request and response models: the contract
+   │  app.py       routes, validation, errors, limits, security headers
+   │  directory.py company search and profile (reuses resolver + planner rules)
+   │  jobs.py      background runs on a small thread pool
+   │  views.py     engine results -> response models (no new calculations)
+   ▼
+Orchestrator and stages (unchanged)  ──  SQLite (runs, transitions, checkpoints), out/<run_id>/
+```
+
+**Thin layer.** The API adds no financial logic. Every figure, comparison, evidence status
+and sentence in a response is read from the engine's checkpoints or formatted by
+`presentation.py`, the same code the report writer and reviewer use. The frontend formats
+dates and file sizes and nothing else.
+
+**Contract.** `schemas.py` is the single definition. `scripts/export_openapi.py` writes
+`docs/openapi.json`, and `npm run gen:api` turns that into `web/src/api/schema.d.ts`. CI
+fails if either file is stale, so a backend change that the frontend has not caught up with
+breaks the build rather than the page.
+
+**Runs are background jobs.** `POST /api/runs` validates the request against the company's
+profile (scope, available fiscal years), stores the run and returns its ID with `202`. A
+worker thread drives the orchestrator with its own SQLite connection. The page polls
+`GET /api/runs/{id}` once a second. Progress is the state machine's own history: a stage is
+"done" when its checkpoint and transition exist, so there is nothing to simulate. Because
+the run ID is in the URL and the state is in SQLite, a refresh, a second tab or a shared
+link all reconnect to the same run.
+
+| Situation | Behaviour |
+|---|---|
+| Same request submitted twice while running | The second call returns the first run's ID (`reused: true`) |
+| Queue full, or more than `FINSIGHT_RUNS_PER_HOUR` from one address | `429` with `Retry-After` and next steps |
+| A stage fails (for example SEC unreachable) | Run is `failed` with the stage, a plain reason and next steps; `POST …/resume` continues from that stage |
+| Server restarted mid-run | Run is reported as `interrupted`; resume continues from the last checkpoint |
+| Run exceeds `FINSIGHT_RUN_BUDGET_SECONDS` | Stopped between stages as `failed`, resumable |
+| Blocking data issue | Run finishes as `partial`: affected metrics are unavailable with a reason, nothing is estimated |
+| Live SEC access not configured | Health says so; real tickers get `503 live_unavailable`; only the synthetic company runs |
+
+**Review state.** `ready_for_review` and `partial` reports are "awaiting analyst review".
+Approval is a separate `POST …/approve`, optionally protected by `FINSIGHT_REVIEWER_TOKEN`.
+
+**Safety.** Input is validated by Pydantic models that forbid unknown fields; company
+identifiers and run IDs are pattern-checked. Downloads are restricted to files inside the
+run's own output folder with a known extension. Filing text is rendered as text by React
+(never as HTML), and generated HTML reports are served with a `sandbox` Content Security
+Policy. CORS is off unless `FINSIGHT_CORS_ORIGINS` names origins. API keys exist only in the
+server's environment. Errors return a code, a message and next steps, never a stack trace.
+
+**Samples.** `scripts/build_web_sample.py` runs the pipeline through the API and saves the
+responses and files under `web/public/sample/`. The landing page preview and the sample
+report render them with the same components as a live run, so they work on a static host
+and when the backend is down. A test validates them against the current contract.
+
+**Known limits of this design.** One process: jobs live in the web process, so run a single
+instance with a single worker. Rate limits are in memory and per process. There are no
+user accounts, so every visitor sees the same archive and can read any report by its ID;
+do not put confidential questions into a public deployment. Polling, not streaming.
+No PDF export: reports download as HTML and Markdown, data as CSV and JSON, charts as PNG.
+
 ### Not yet built
 
 * The single-prompt baseline (validated tables + retrieved excerpts → one report prompt)
   for measuring what the agentic loop adds. Planned next, once runs with Claude are
   available to compare.
-* Analyst "request revision" from READY_FOR_REVIEW (arrives with the Stage 3 dashboard).
+* Analyst "request revision" from READY_FOR_REVIEW. The web app offers approval only.

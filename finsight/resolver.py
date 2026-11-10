@@ -96,11 +96,8 @@ def check_scope(company: Company, submissions: dict, settings: Settings) -> None
             )
 
 
-def resolve_company(identifier: str, source: DataSource, settings: Settings) -> Resolution:
-    cik, docs = find_cik(identifier, source)
-    fetched = source.submissions(cik)
-    sub = fetched.payload
-    company = Company(
+def company_from_submissions(cik: str, sub: dict) -> Company:
+    return Company(
         cik=cik,
         name=sub.get("name", ""),
         tickers=list(sub.get("tickers", []) or []),
@@ -109,5 +106,12 @@ def resolve_company(identifier: str, source: DataSource, settings: Settings) -> 
         fiscal_year_end=sub.get("fiscalYearEnd") or None,
         state_of_incorporation=sub.get("stateOfIncorporation") or None,
     )
+
+
+def resolve_company(identifier: str, source: DataSource, settings: Settings) -> Resolution:
+    cik, docs = find_cik(identifier, source)
+    fetched = source.submissions(cik)
+    sub = fetched.payload
+    company = company_from_submissions(cik, sub)
     check_scope(company, sub, settings)
     return Resolution(company=company, submissions=sub, documents=docs + [fetched.document])

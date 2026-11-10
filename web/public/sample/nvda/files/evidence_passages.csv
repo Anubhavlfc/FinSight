@@ -1,0 +1,46 @@
+passage_id,accession,form,filing_date,fiscal_period,section,char_start,char_end,url,is_fixture,text
+psg:0001045810-25-000023:item_7:027,0001045810-25-000023,10-K,2025-02-26,FY2025,Item 7. Management's Discussion and Analysis (MD&A),210930,212003,https://www.sec.gov/Archives/edgar/data/1045810/000104581025000023/nvda-20250126.htm,False,"Compute & Networking revenue – The year over year increase was due to strong demand for our accelerated computing and AI solutions. Revenue from Data Center computing grew 162% driven primarily by demand for our Hopper computing platform used for large language models, recommendation engines, and generative AI applications. Revenue from Data Center networking grew 51% driven by Ethernet for AI revenue, which includes Spectrum-X end-to-end ethernet platform.
+Graphics revenue – The year over year increase was driven by sales of our GeForce RTX 40 Series GPUs.
+Reportable segment operating income – The year over year increase in Compute & Networking segment operating income was driven by growth in revenue. The year over year decrease in Graphics segment operating income was driven by an increase of 44% in segment operating expenses, partially offset by growth in revenue.
+All Other operating loss – The year over year increase was due to an increase in stock-based compensation expense reflecting employee growth and compensation increases.
+Concentration of Revenue"
+psg:0001045810-26-000021:item_7:020,0001045810-26-000021,10-K,2026-02-25,FY2026,Item 7. Management's Discussion and Analysis (MD&A),202845,204013,https://www.sec.gov/Archives/edgar/data/1045810/000104581026000021/nvda-20260125.htm,False,"Compute & Networking
+$ | 130,141 | | | $ | 82,875 | | | $ | 47,266 | | | 57 | %
+Graphics | 9,156 | | | 5,085 | | | 4,071 | | | 80 | %
+Total | $ | 139,297 | | | $ | 87,960 | | | $ | 51,337 | | | 58 | %
+Compute & Networking revenue – The year over year increase was driven by the major platform shifts – accelerated computing and AI. Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform. Revenue from Data Center networking grew 142% driven by the introduction and continued ramp of NVLink compute fabric for GB200 and GB300 systems and the growth of Ethernet and InfiniBand platforms.
+Graphics revenue – The year over year increase was driven by sales of our Blackwell architecture.
+Reportable segment operating income – The year over year increase in Compute & Networking segment operating income was driven by growth in revenue, partially offset by a $4.5 billion charge associated with H20 excess inventory and purchase obligations in the first quarter of fiscal year 2026. The year over year increase in Graphics segment operating income was driven by the growth in revenue.
+40
+Table of Contents
+Concentration of Revenue"
+psg:0001045810-25-000023:item_7:035,0001045810-25-000023,10-K,2025-02-26,FY2025,Item 7. Management's Discussion and Analysis (MD&A),219077,220149,https://www.sec.gov/Archives/edgar/data/1045810/000104581025000023/nvda-20250126.htm,False,"Cash, cash equivalents, and marketable securities | $ | 43,210 | | | $ | 25,984
+Year Ended
+Jan 26, 2025 | | Jan 28, 2024
+(In millions)
+Net cash provided by operating activities | $ | 64,089 | | | $ | 28,090
+Net cash used in investing activities | $ | (20,421) | | | $ | (10,566)
+Net cash used in financing activities | $ | (42,359) | | | $ | (13,633)
+Our investment policy requires the purchase of highly-rated fixed income securities, the diversification of investment types and credit exposures, and certain maturity limits on our portfolio.
+43
+Table of Contents
+Cash provided by operating activities increased in fiscal year 2025 compared to fiscal year 2024, due to growth in revenue.
+Cash used in investing activities increased in fiscal year 2025 compared to fiscal year 2024, primarily driven by net purchases of marketable securities, and purchase of land, property and equipment.
+Cash used in financing activities increased in fiscal year 2025 compared to fiscal year 2024, mainly due to higher share repurchases and higher tax payments related to RSUs.
+Liquidity"
+psg:0001045810-26-000021:item_7:028,0001045810-26-000021,10-K,2026-02-25,FY2026,Item 7. Management's Discussion and Analysis (MD&A),211722,212822,https://www.sec.gov/Archives/edgar/data/1045810/000104581026000021/nvda-20260125.htm,False,"Cash and cash equivalents | $ | 10,605 | | | $ | 8,589
+Marketable securities | 51,951 | | | 34,621
+Cash, cash equivalents, and marketable securities | $ | 62,556 | | | $ | 43,210
+42
+Table of Contents
+Year Ended
+Jan 25, 2026 | | Jan 26, 2025
+(In millions)
+Net cash provided by operating activities | $ | 102,718 | | | $ | 64,089
+Net cash used in investing activities | $ | (52,228) | | | $ | (20,421)
+Net cash used in financing activities | $ | (48,474) | | | $ | (42,359)
+Our fixed income security investments include highly rated, diversified investment types and credit exposures with shorter maturities.
+Cash provided by operating activities increased in fiscal year 2026 compared to fiscal year 2025, due to higher revenue.
+Cash used in investing activities increased in fiscal year 2026 compared to fiscal year 2025, primarily driven by higher purchases of equity investment securities and the execution of a non-exclusive license agreement with Groq.
+Cash used in financing activities increased in fiscal year 2026 compared to fiscal year 2025, mainly due to higher share repurchases.
+Liquidity"

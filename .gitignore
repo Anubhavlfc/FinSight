@@ -11,3 +11,13 @@ out/
 *.sqlite
 *.sqlite3
 *.db
+
+# Web app
+node_modules/
+web/dist/
+web/test-results/
+web/playwright-report/
+web/.vite/
+*.tsbuildinfo
+.env.*
+!.env.example

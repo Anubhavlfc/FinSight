@@ -1,0 +1,10 @@
+series,fiscal_period,value_USD_billions,metric_id
+Revenue,FY2024,60.922,metric:revenue:FY2024
+Revenue,FY2025,130.497,metric:revenue:FY2025
+Revenue,FY2026,215.938,metric:revenue:FY2026
+Operating income,FY2024,32.972,metric:operating_income:FY2024
+Operating income,FY2025,81.453,metric:operating_income:FY2025
+Operating income,FY2026,130.387,metric:operating_income:FY2026
+Net income,FY2024,29.76,metric:net_income:FY2024
+Net income,FY2025,72.88,metric:net_income:FY2025
+Net income,FY2026,120.067,metric:net_income:FY2026

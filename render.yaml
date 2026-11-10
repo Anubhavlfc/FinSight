@@ -1,0 +1,30 @@
+# Render blueprint: one Docker web service with a persistent disk.
+# Deploy: Render dashboard -> New -> Blueprint -> pick this repository. See docs/deployment.md.
+services:
+  - type: web
+    name: finsight
+    runtime: docker
+    plan: starter            # the free plan cannot attach a disk, so its report archive is lost on every restart
+    numInstances: 1          # analyses run inside the web process; keep a single instance
+    healthCheckPath: /api/health
+    autoDeploy: true
+    disk:
+      name: finsight-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      # SEC asks automated clients to identify themselves: "<app or name> <contact email>". Set it in the dashboard.
+      - key: FINSIGHT_SEC_USER_AGENT
+        sync: false
+      # Optional. Without it the rule-based investigator is used and no LLM cost is possible.
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      # Keep the public site on the rule-based investigator even if a key is present. Change to "auto" to let visitors spend it.
+      - key: FINSIGHT_PUBLIC_INVESTIGATOR
+        value: rule_based
+      # Approving a report needs this token (shown once in the dashboard).
+      - key: FINSIGHT_REVIEWER_TOKEN
+        generateValue: true
+      # Render's proxy adds the visitor's address to X-Forwarded-For; rate limits are counted per visitor.
+      - key: FINSIGHT_TRUSTED_PROXY_HOPS
+        value: "1"

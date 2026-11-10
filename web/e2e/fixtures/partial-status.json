@@ -1,0 +1,183 @@
+{
+ "id": "run-20261110-075339-a14e87",
+ "state": "PARTIAL",
+ "phase": "partial",
+ "is_active": false,
+ "identifier": "0009999901",
+ "question": null,
+ "company": {
+  "cik": "0009999901",
+  "name": "DEMO ANALYTICS CORP (SYNTHETIC FIXTURE)",
+  "ticker": "DEMO",
+  "tickers": [
+   "DEMO"
+  ]
+ },
+ "periods": [
+  "FY2024",
+  "FY2025",
+  "FY2026"
+ ],
+ "synthetic": true,
+ "created_at": "2026-11-10T07:53:39.389396Z",
+ "updated_at": "2026-11-10T07:53:39.512743Z",
+ "finished_at": "2026-11-10T07:53:39.512743Z",
+ "elapsed_seconds": 0.1,
+ "stages": [
+  {
+   "key": "planning",
+   "label": "Planning",
+   "state": "done",
+   "started_at": "2026-11-10T07:53:39.394983Z",
+   "finished_at": "2026-11-10T07:53:39.401090Z",
+   "detail": "Planned DEMO ANALYTICS CORP (SYNTHETIC FIXTURE) (0009999901): FY2024 ending 2024-06-30, FY2025 ending 2025-06-30, FY2026 ending 2026-06-30"
+  },
+  {
+   "key": "collecting",
+   "label": "Collecting",
+   "state": "done",
+   "started_at": "2026-11-10T07:53:39.401090Z",
+   "finished_at": "2026-11-10T07:53:39.416820Z",
+   "detail": "Collected 205 candidate XBRL values"
+  },
+  {
+   "key": "validating",
+   "label": "Validating",
+   "state": "done",
+   "started_at": "2026-11-10T07:53:39.406266Z",
+   "finished_at": "2026-11-10T07:53:39.424097Z",
+   "detail": "Validated: 39 accepted facts, 8 blocking issue(s)"
+  },
+  {
+   "key": "calculating",
+   "label": "Calculating",
+   "state": "done",
+   "started_at": "2026-11-10T07:53:39.424097Z",
+   "finished_at": "2026-11-10T07:53:39.428811Z",
+   "detail": "5 change(s) flagged for investigation"
+  },
+  {
+   "key": "investigating",
+   "label": "Investigating",
+   "state": "done",
+   "started_at": "2026-11-10T07:53:39.428811Z",
+   "finished_at": "2026-11-10T07:53:39.500790Z",
+   "detail": "Investigated 5 change(s)"
+  },
+  {
+   "key": "writing",
+   "label": "Writing",
+   "state": "done",
+   "started_at": "2026-11-10T07:53:39.500790Z",
+   "finished_at": "2026-11-10T07:53:39.507923Z",
+   "detail": "Report revision 0 drafted with 56 claims"
+  },
+  {
+   "key": "reviewing",
+   "label": "Reviewing",
+   "state": "done",
+   "started_at": "2026-11-10T07:53:39.507923Z",
+   "finished_at": "2026-11-10T07:53:39.512743Z",
+   "detail": "Review passed; 8 blocking data issue(s)"
+  },
+  {
+   "key": "ready",
+   "label": "Partial results",
+   "state": "done",
+   "started_at": "2026-11-10T07:53:39.512743Z",
+   "finished_at": "2026-11-10T07:53:39.512743Z",
+   "detail": null
+  }
+ ],
+ "current_activity": "Finished with partial results. Some metrics are unavailable and nothing was estimated.",
+ "activity": [
+  {
+   "at": "2026-11-10T07:53:39.394983Z",
+   "stage": null,
+   "kind": "info",
+   "message": "Analysis started"
+  },
+  {
+   "at": "2026-11-10T07:53:39.401090Z",
+   "stage": "planning",
+   "kind": "info",
+   "message": "Planned DEMO ANALYTICS CORP (SYNTHETIC FIXTURE) (0009999901): FY2024 ending 2024-06-30, FY2025 ending 2025-06-30, FY2026 ending 2026-06-30"
+  },
+  {
+   "at": "2026-11-10T07:53:39.406266Z",
+   "stage": "collecting",
+   "kind": "info",
+   "message": "Collected 205 candidate XBRL values"
+  },
+  {
+   "at": "2026-11-10T07:53:39.411804Z",
+   "stage": "validating",
+   "kind": "warning",
+   "message": "Recoverable: company facts predate the latest 10-K; refetching"
+  },
+  {
+   "at": "2026-11-10T07:53:39.416820Z",
+   "stage": "collecting",
+   "kind": "info",
+   "message": "Collected 205 candidate XBRL values"
+  },
+  {
+   "at": "2026-11-10T07:53:39.424097Z",
+   "stage": "validating",
+   "kind": "info",
+   "message": "Validated: 39 accepted facts, 8 blocking issue(s)"
+  },
+  {
+   "at": "2026-11-10T07:53:39.428811Z",
+   "stage": "calculating",
+   "kind": "info",
+   "message": "5 change(s) flagged for investigation"
+  },
+  {
+   "at": "2026-11-10T07:53:39.500790Z",
+   "stage": "investigating",
+   "kind": "info",
+   "message": "Investigated 5 change(s)"
+  },
+  {
+   "at": "2026-11-10T07:53:39.507923Z",
+   "stage": "writing",
+   "kind": "info",
+   "message": "Report revision 0 drafted with 56 claims"
+  },
+  {
+   "at": "2026-11-10T07:53:39.512743Z",
+   "stage": "reviewing",
+   "kind": "warning",
+   "message": "Review passed; 8 blocking data issue(s)"
+  }
+ ],
+ "warnings": [
+  "8 blocking data issue(s): the affected metrics are unavailable.",
+  "12 data validation warning(s), for example restated or competing values. They are listed under Sources and limitations.",
+  "Explanations come from the rule-based investigator, not an AI model. It only quotes sentences that state a cause, so some changes stay unexplained."
+ ],
+ "error": null,
+ "needs_input": null,
+ "review": {
+  "state": "awaiting_review",
+  "label": "Awaiting analyst review",
+  "passed": true,
+  "revision_cycles": 0,
+  "unresolved_defects": 0,
+  "approved_at": null,
+  "approval_note": null
+ },
+ "investigator": {
+  "name": "Rule-based investigator (no LLM)",
+  "is_rule_based": true,
+  "note": "offline stub requested"
+ },
+ "investigation": {
+  "investigated": 5,
+  "flagged": 5,
+  "limit": 8
+ },
+ "has_results": true,
+ "has_report": true
+}

@@ -21,6 +21,7 @@ from finsight.errors import SourceNotFoundError
 from finsight.sec.client import SecHttpClient
 
 TICKERS_URL = "https://www.sec.gov/files/company_tickers.json"
+TICKERS_EXCHANGE_URL = "https://www.sec.gov/files/company_tickers_exchange.json"
 SUBMISSIONS_URL = "https://data.sec.gov/submissions/CIK{cik}.json"
 SUBMISSIONS_PAGE_URL = "https://data.sec.gov/submissions/{name}"
 COMPANY_FACTS_URL = "https://data.sec.gov/api/xbrl/companyfacts/CIK{cik}.json"
@@ -158,6 +159,10 @@ class LiveSecSource:
 
     def company_tickers(self) -> Fetched:
         return self._fetch(TICKERS_URL, SourceKind.COMPANY_TICKERS, None, TICKERS_TTL_SECONDS)
+
+    def company_exchanges(self) -> Fetched:
+        """Ticker list with the listing exchange. Only used for search display, never for analysis."""
+        return self._fetch(TICKERS_EXCHANGE_URL, SourceKind.COMPANY_TICKERS, None, TICKERS_TTL_SECONDS)
 
     def submissions(self, cik: str) -> Fetched:
         return self._fetch(SUBMISSIONS_URL.format(cik=cik), SourceKind.SUBMISSIONS, cik,

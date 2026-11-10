@@ -1,0 +1,1062 @@
+{
+  "findings": [
+    {
+      "id": "finding:change:revenue_change:FY2024->FY2025",
+      "change_flag_id": "change:revenue_change:FY2024->FY2025",
+      "calculated_observation": "Revenue rose 114.2% (FY2024->FY2025). Revenue: $60.9 billion in FY2024, $130.5 billion in FY2025.",
+      "management_explanation": "The 10-K states: Revenue from Data Center computing grew 162% driven primarily by demand for our Hopper computing platform used for large language models, recommendation engines, and generative AI applications.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [],
+      "assessment": "favorable",
+      "evidence_status": "supported",
+      "status_reason": "management explanation backed by verified quotes",
+      "quotes": [
+        {
+          "passage_id": "psg:0001045810-25-000023:item_7:027",
+          "quote": "Revenue from Data Center computing grew 162% driven primarily by demand for our Hopper computing platform used for large language models, recommendation engines, and generative AI applications.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:revenue_growth:FY2024->FY2025",
+        "metric:revenue_change:FY2024->FY2025",
+        "metric:revenue:FY2024",
+        "metric:revenue:FY2025"
+      ],
+      "passage_ids": [
+        "psg:0001045810-25-000023:item_7:027"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "revenue_growth",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:revenue_growth:FY2024->FY2025 = 114.2034076359935655428252519615246 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "revenue_change",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:revenue_change:FY2024->FY2025 = 69575000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "revenue increased decreased driven primarily",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2025",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'revenue increased decreased driven primarily' -> 5 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:027"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:027"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:030"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:030"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:015"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:015"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:032"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:032"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:035"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:035"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: Revenue from Data Center computing grew 162% driven primarily by demand for our Hopper computing platform used for large language models, recommendation engines, and generative AI applications.",
+            "quotes": [
+              {
+                "passage_id": "psg:0001045810-25-000023:item_7:027",
+                "quote": "Revenue from Data Center computing grew 162% driven primarily by demand for our Hopper computing platform used for large language models, recommendation engines, and generative AI applications."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [],
+            "assessment": "favorable",
+            "proposed_evidence_status": "supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:capex_change:FY2024->FY2025",
+      "change_flag_id": "change:capex_change:FY2024->FY2025",
+      "calculated_observation": "Capital expenditure rose 202.7% (FY2024->FY2025). Capital expenditure: $1,069 million in FY2024, $3,236 million in FY2025.",
+      "management_explanation": null,
+      "analyst_interpretation": null,
+      "unresolved_questions": [
+        "The retrieved 10-K text does not explain the change in capital expenditure."
+      ],
+      "assessment": "ambiguous",
+      "evidence_status": "unsupported",
+      "status_reason": "no verified quote supports a management explanation",
+      "quotes": [],
+      "metric_ids": [
+        "metric:capital_expenditure_growth:FY2024->FY2025",
+        "metric:capital_expenditure_change:FY2024->FY2025",
+        "metric:capital_expenditure:FY2024",
+        "metric:capital_expenditure:FY2025"
+      ],
+      "passage_ids": [],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "capital_expenditure_growth",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:capital_expenditure_growth:FY2024->FY2025 = 202.7128157156220767072029934518241 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "capital_expenditure_change",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:capital_expenditure_change:FY2024->FY2025 = 2167000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "additions to property and equipment capital expenditures data center",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2025",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'additions to property and equipment capital expenditures data center' -> 5 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:039"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:039"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:035"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:035"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:012"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:012"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:002"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:002"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:008"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:008"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": null,
+            "quotes": [],
+            "analyst_interpretation": null,
+            "unresolved_questions": [
+              "The retrieved 10-K text does not explain the change in capital expenditure."
+            ],
+            "assessment": "ambiguous",
+            "proposed_evidence_status": "unsupported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:net_income_change:FY2024->FY2025",
+      "change_flag_id": "change:net_income_change:FY2024->FY2025",
+      "calculated_observation": "Net income rose 144.9% (FY2024->FY2025). Net income: $29.8 billion in FY2024, $72.9 billion in FY2025.",
+      "management_explanation": null,
+      "analyst_interpretation": null,
+      "unresolved_questions": [
+        "The retrieved 10-K text does not explain the change in net income."
+      ],
+      "assessment": "favorable",
+      "evidence_status": "unsupported",
+      "status_reason": "no verified quote supports a management explanation",
+      "quotes": [],
+      "metric_ids": [
+        "metric:net_income_growth:FY2024->FY2025",
+        "metric:net_income_change:FY2024->FY2025",
+        "metric:net_income:FY2024",
+        "metric:net_income:FY2025"
+      ],
+      "passage_ids": [],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "net_income_growth",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:net_income_growth:FY2024->FY2025 = 144.8924731182795698924731182795699 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "net_income_change",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:net_income_change:FY2024->FY2025 = 43120000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "net income net loss charge compared",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2025",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'net income net loss charge compared' -> 5 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:025"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:025"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:033"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:033"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:035"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:035"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:017"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:017"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:032"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:032"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": null,
+            "quotes": [],
+            "analyst_interpretation": null,
+            "unresolved_questions": [
+              "The retrieved 10-K text does not explain the change in net income."
+            ],
+            "assessment": "favorable",
+            "proposed_evidence_status": "unsupported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:revenue_change:FY2025->FY2026",
+      "change_flag_id": "change:revenue_change:FY2025->FY2026",
+      "calculated_observation": "Revenue rose 65.5% (FY2025->FY2026). Revenue: $130.5 billion in FY2025, $215.9 billion in FY2026.",
+      "management_explanation": "The 10-K states: Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [],
+      "assessment": "favorable",
+      "evidence_status": "supported",
+      "status_reason": "management explanation backed by verified quotes",
+      "quotes": [
+        {
+          "passage_id": "psg:0001045810-26-000021:item_7:020",
+          "quote": "Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:revenue_growth:FY2025->FY2026",
+        "metric:revenue_change:FY2025->FY2026",
+        "metric:revenue:FY2025",
+        "metric:revenue:FY2026"
+      ],
+      "passage_ids": [
+        "psg:0001045810-26-000021:item_7:020"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "revenue_growth",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:revenue_growth:FY2025->FY2026 = 65.47353579009479145114447075411695 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "revenue_change",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:revenue_change:FY2025->FY2026 = 85441000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "revenue increased decreased driven primarily",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2026",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'revenue increased decreased driven primarily' -> 5 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:025"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:025"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:020"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:020"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:028"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:028"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:008"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:008"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:009"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:009"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform.",
+            "quotes": [
+              {
+                "passage_id": "psg:0001045810-26-000021:item_7:020",
+                "quote": "Revenue from Data Center computing grew 59% driven by demand for our Blackwell computing platform."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [],
+            "assessment": "favorable",
+            "proposed_evidence_status": "supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:free_cash_flow_change:FY2024->FY2025",
+      "change_flag_id": "change:free_cash_flow_change:FY2024->FY2025",
+      "calculated_observation": "Free cash flow rose 125.2% (FY2024->FY2025). Free cash flow: $27.0 billion in FY2024, $60.9 billion in FY2025.",
+      "management_explanation": "The 10-K states: Cash provided by operating activities increased in fiscal year 2025 compared to fiscal year 2024, due to growth in revenue.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [
+        "The retrieved 10-K text does not explain the change in capital expenditure."
+      ],
+      "assessment": "favorable",
+      "evidence_status": "partially_supported",
+      "status_reason": "open questions remain",
+      "quotes": [
+        {
+          "passage_id": "psg:0001045810-25-000023:item_7:035",
+          "quote": "Cash provided by operating activities increased in fiscal year 2025 compared to fiscal year 2024, due to growth in revenue.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:free_cash_flow_growth:FY2024->FY2025",
+        "metric:free_cash_flow_change:FY2024->FY2025",
+        "metric:free_cash_flow:FY2024",
+        "metric:free_cash_flow:FY2025"
+      ],
+      "passage_ids": [
+        "psg:0001045810-25-000023:item_7:035"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "free_cash_flow_growth",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:free_cash_flow_growth:FY2024->FY2025 = 125.2063210095851374856593020243514 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "free_cash_flow_change",
+            "period": "FY2024->FY2025"
+          },
+          "ok": true,
+          "summary": "metric metric:free_cash_flow_change:FY2024->FY2025 = 33832000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "cash flows from operating activities property and equipment capital expenditures",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2025",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'cash flows from operating activities property and equipment capital expenditures' -> 5 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:035"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:035"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:039"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:039"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:036"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:036"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:037"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:037"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-25-000023:item_7:012"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-25-000023:item_7:012"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: Cash provided by operating activities increased in fiscal year 2025 compared to fiscal year 2024, due to growth in revenue.",
+            "quotes": [
+              {
+                "passage_id": "psg:0001045810-25-000023:item_7:035",
+                "quote": "Cash provided by operating activities increased in fiscal year 2025 compared to fiscal year 2024, due to growth in revenue."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [
+              "The retrieved 10-K text does not explain the change in capital expenditure."
+            ],
+            "assessment": "favorable",
+            "proposed_evidence_status": "partially_supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:capex_change:FY2025->FY2026",
+      "change_flag_id": "change:capex_change:FY2025->FY2026",
+      "calculated_observation": "Capital expenditure rose 86.7% (FY2025->FY2026). Capital expenditure: $3,236 million in FY2025, $6,042 million in FY2026.",
+      "management_explanation": null,
+      "analyst_interpretation": null,
+      "unresolved_questions": [
+        "The retrieved 10-K text does not explain the change in capital expenditure."
+      ],
+      "assessment": "ambiguous",
+      "evidence_status": "unsupported",
+      "status_reason": "no verified quote supports a management explanation",
+      "quotes": [],
+      "metric_ids": [
+        "metric:capital_expenditure_growth:FY2025->FY2026",
+        "metric:capital_expenditure_change:FY2025->FY2026",
+        "metric:capital_expenditure:FY2025",
+        "metric:capital_expenditure:FY2026"
+      ],
+      "passage_ids": [],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "capital_expenditure_growth",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:capital_expenditure_growth:FY2025->FY2026 = 86.71199011124845488257107540173053 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "capital_expenditure_change",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:capital_expenditure_change:FY2025->FY2026 = 2806000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "additions to property and equipment capital expenditures data center",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2026",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'additions to property and equipment capital expenditures data center' -> 5 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:002"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:002"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:033"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:033"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:007"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:007"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:001"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:001"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:029"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:029"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": null,
+            "quotes": [],
+            "analyst_interpretation": null,
+            "unresolved_questions": [
+              "The retrieved 10-K text does not explain the change in capital expenditure."
+            ],
+            "assessment": "ambiguous",
+            "proposed_evidence_status": "unsupported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:net_income_change:FY2025->FY2026",
+      "change_flag_id": "change:net_income_change:FY2025->FY2026",
+      "calculated_observation": "Net income rose 64.7% (FY2025->FY2026). Net income: $72.9 billion in FY2025, $120.1 billion in FY2026.",
+      "management_explanation": null,
+      "analyst_interpretation": null,
+      "unresolved_questions": [
+        "The retrieved 10-K text does not explain the change in net income."
+      ],
+      "assessment": "favorable",
+      "evidence_status": "unsupported",
+      "status_reason": "no verified quote supports a management explanation",
+      "quotes": [],
+      "metric_ids": [
+        "metric:net_income_growth:FY2025->FY2026",
+        "metric:net_income_change:FY2025->FY2026",
+        "metric:net_income:FY2025",
+        "metric:net_income:FY2026"
+      ],
+      "passage_ids": [],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "net_income_growth",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:net_income_growth:FY2025->FY2026 = 64.74615806805708013172338090010977 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "net_income_change",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:net_income_change:FY2025->FY2026 = 47187000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "net income net loss charge compared",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2026",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'net income net loss charge compared' -> 5 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:026"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:026"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:028"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:028"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:011"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:011"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:019"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:019"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:025"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:025"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": null,
+            "quotes": [],
+            "analyst_interpretation": null,
+            "unresolved_questions": [
+              "The retrieved 10-K text does not explain the change in net income."
+            ],
+            "assessment": "favorable",
+            "proposed_evidence_status": "unsupported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    },
+    {
+      "id": "finding:change:free_cash_flow_change:FY2025->FY2026",
+      "change_flag_id": "change:free_cash_flow_change:FY2025->FY2026",
+      "calculated_observation": "Free cash flow rose 58.9% (FY2025->FY2026). Free cash flow: $60.9 billion in FY2025, $96.7 billion in FY2026.",
+      "management_explanation": "The 10-K states: Cash provided by operating activities increased in fiscal year 2026 compared to fiscal year 2025, due to higher revenue.",
+      "analyst_interpretation": null,
+      "unresolved_questions": [
+        "The retrieved 10-K text does not explain the change in capital expenditure."
+      ],
+      "assessment": "favorable",
+      "evidence_status": "partially_supported",
+      "status_reason": "open questions remain",
+      "quotes": [
+        {
+          "passage_id": "psg:0001045810-26-000021:item_7:028",
+          "quote": "Cash provided by operating activities increased in fiscal year 2026 compared to fiscal year 2025, due to higher revenue.",
+          "verified": true,
+          "verification_note": "verbatim match"
+        }
+      ],
+      "metric_ids": [
+        "metric:free_cash_flow_growth:FY2025->FY2026",
+        "metric:free_cash_flow_change:FY2025->FY2026",
+        "metric:free_cash_flow:FY2025",
+        "metric:free_cash_flow:FY2026"
+      ],
+      "passage_ids": [
+        "psg:0001045810-26-000021:item_7:028"
+      ],
+      "steps_used": 2,
+      "budget_exhausted": false,
+      "tool_calls": [
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "free_cash_flow_growth",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:free_cash_flow_growth:FY2025->FY2026 = 58.86809195931178413553974331585953 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "get_validated_metric",
+          "input": {
+            "name": "free_cash_flow_change",
+            "period": "FY2025->FY2026"
+          },
+          "ok": true,
+          "summary": "metric metric:free_cash_flow_change:FY2025->FY2026 = 35823000000 (available)"
+        },
+        {
+          "step": 1,
+          "tool": "search_filing_sections",
+          "input": {
+            "query": "cash flows from operating activities property and equipment capital expenditures",
+            "sections": [
+              "item_7",
+              "item_8"
+            ],
+            "fiscal_period": "FY2026",
+            "limit": 8
+          },
+          "ok": true,
+          "summary": "search 'cash flows from operating activities property and equipment capital expenditures' -> 5 hit(s)"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:028"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:028"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:029"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:029"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:033"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:033"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:007"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:007"
+        },
+        {
+          "step": 2,
+          "tool": "read_source_passage",
+          "input": {
+            "passage_id": "psg:0001045810-26-000021:item_7:030"
+          },
+          "ok": true,
+          "summary": "read psg:0001045810-26-000021:item_7:030"
+        },
+        {
+          "step": 3,
+          "tool": "record_finding",
+          "input": {
+            "management_explanation": "The 10-K states: Cash provided by operating activities increased in fiscal year 2026 compared to fiscal year 2025, due to higher revenue.",
+            "quotes": [
+              {
+                "passage_id": "psg:0001045810-26-000021:item_7:028",
+                "quote": "Cash provided by operating activities increased in fiscal year 2026 compared to fiscal year 2025, due to higher revenue."
+              }
+            ],
+            "analyst_interpretation": null,
+            "unresolved_questions": [
+              "The retrieved 10-K text does not explain the change in capital expenditure."
+            ],
+            "assessment": "favorable",
+            "proposed_evidence_status": "partially_supported"
+          },
+          "ok": true,
+          "summary": "recorded"
+        }
+      ],
+      "produced_by": "offline-stub (rule-based, no LLM)",
+      "revision": 0
+    }
+  ],
+  "not_investigated": [
+    "change:operating_margin_change:FY2024->FY2025"
+  ],
+  "notes": [
+    "1 lower-ranked change(s) not investigated (max_findings = 8)."
+  ],
+  "llm_usage": {
+    "provider": "offline-stub (rule-based, no LLM)",
+    "is_stub": true,
+    "model_calls": 24,
+    "input_tokens": 0,
+    "output_tokens": 0,
+    "cache_read_tokens": 0,
+    "calls_by_purpose": {
+      "investigate:change:revenue_change:FY2024->FY2025": 3,
+      "investigate:change:capex_change:FY2024->FY2025": 3,
+      "investigate:change:net_income_change:FY2024->FY2025": 3,
+      "investigate:change:revenue_change:FY2025->FY2026": 3,
+      "investigate:change:free_cash_flow_change:FY2024->FY2025": 3,
+      "investigate:change:capex_change:FY2025->FY2026": 3,
+      "investigate:change:net_income_change:FY2025->FY2026": 3,
+      "investigate:change:free_cash_flow_change:FY2025->FY2026": 3
+    },
+    "estimated_cost_usd": 0.0,
+    "cost_note": "no LLM used"
+  }
+}
