@@ -13,19 +13,24 @@ export default defineConfig(({ mode }) => {
     base,
     plugins: [
       react(),
-      {
+      (() => {
         // Static hosts such as GitHub Pages serve 404.html for unknown paths. A copy of
         // index.html there lets a refresh on /app/runs/<id> load the app, which then routes.
-        name: "spa-404-fallback",
-        closeBundle() {
-          const dist = resolve(process.cwd(), "dist");
-          try {
-            copyFileSync(resolve(dist, "index.html"), resolve(dist, "404.html"));
-          } catch {
-            /* build output missing: nothing to copy */
-          }
-        },
-      },
+        let outDir = "dist";
+        return {
+          name: "spa-404-fallback",
+          configResolved(config: { root: string; build: { outDir: string } }) {
+            outDir = resolve(config.root, config.build.outDir);
+          },
+          closeBundle() {
+            try {
+              copyFileSync(resolve(outDir, "index.html"), resolve(outDir, "404.html"));
+            } catch {
+              /* build output missing: nothing to copy */
+            }
+          },
+        };
+      })(),
     ],
     server: {
       port: 5173,

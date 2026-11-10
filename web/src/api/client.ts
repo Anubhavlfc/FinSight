@@ -69,7 +69,17 @@ async function request<T>(path: string, init: RequestInit = {}, signal?: AbortSi
   const type = response.headers.get("content-type") ?? "";
   if (!type.includes("application/json")) {
     // A static host answers /api/* with an HTML page: the service is simply not there.
-    throw new ApiError(response.status, { code: "network", message: "The analysis service is not available at this address." }, true);
+    // Reported as "service unavailable" whatever the host's own status was, so a static
+    // host's 404 page is never mistaken for "this run does not exist".
+    throw new ApiError(
+      503,
+      {
+        code: "network",
+        message: "The analysis service is not available at this address.",
+        next_steps: ["The sample analysis works without the service."],
+      },
+      true,
+    );
   }
   const body: unknown = await response.json().catch(() => null);
   if (!response.ok) {

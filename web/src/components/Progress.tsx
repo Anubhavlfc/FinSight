@@ -134,7 +134,7 @@ export function Progress({ status, connectionError, onRefresh }: ProgressProps) 
           <div>
             <dt>Stages done</dt>
             <dd className="num">
-              {status.stages.filter((s) => s.state === "done" && s.key !== "ready").length} of {status.stages.length - 1}
+              {status.stages.filter((s) => s.state === "done").length} of {status.stages.length}
             </dd>
           </div>
           {status.investigation && (

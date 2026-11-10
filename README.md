@@ -1,17 +1,104 @@
-# FinSight: Financial Analysis Copilot
+# FinSight AI
 
-FinSight analyses how a US-listed company performed over its last three completed fiscal
-years, using SEC filings. Every number traces back to a filing accession, a XBRL tag and
-a formula.
+FinSight AI analyses how a US-listed company performed over its last three completed fiscal
+years, using its SEC filings. It collects the reported figures, validates them, calculates
+metrics in Python, finds the largest changes, looks for the company's own explanation of each
+one in its 10-K, and writes a report with charts in which every number and quote can be traced
+to a filing. A person reviews and approves the report; the system never approves its own work.
 
-**Status: Stage 2 (evidence-backed investigation).** Stage 1's data pipeline (company
-resolution, SEC collection, normalization, validation, deterministic metrics, ranked
-changes, SQLite persistence with resume) now feeds an investigator that looks for the
-company's own explanation of each flagged change in its 10-K, a report writer (Markdown and
-HTML with charts and citations) and a reviewer that checks every number and quote. The
-Streamlit dashboard comes in Stage 3. See [docs/architecture.md](docs/architecture.md).
+It has two front ends over one engine: a **web app** (React + FastAPI) and a **CLI**.
 
-## Quick start
+![Landing page](docs/screenshots/landing.png)
+
+| Analysis in progress | Key metrics (live SEC data) |
+|---|---|
+| ![Progress](docs/screenshots/progress.png) | ![Key metrics](docs/screenshots/report-metrics.png) |
+| **Findings with evidence** | **Report archive** |
+| ![Findings](docs/screenshots/findings.png) | ![Reports](docs/screenshots/reports.png) |
+
+The screenshots are from the app running locally. The "Demo Analytics Corp" company is a
+synthetic fixture and is labelled as such everywhere it appears.
+
+## Web app
+
+### Run it locally
+
+Needs Python 3.11+ and Node 20+.
+
+```bash
+python -m venv .venv && source .venv/bin/activate
+pip install -e ".[dev]"
+
+cd web && npm ci && npm run build && cd ..     # build the frontend once
+finsight-api                                    # http://127.0.0.1:8000 serves the API and the app
+```
+
+With nothing else configured the app runs the **synthetic sample company** (ticker `DEMO`)
+end to end, offline and without keys. To analyse real companies, identify yourself to the SEC
+before starting the server (see [Configuration](#configuration)):
+
+```bash
+export FINSIGHT_SEC_USER_AGENT="Your App Name contact@your-domain.example"
+export ANTHROPIC_API_KEY=...      # optional: Claude investigator instead of the rule-based one
+finsight-api
+```
+
+For frontend development, run the API and the Vite dev server side by side. The dev server
+proxies `/api` to port 8000:
+
+```bash
+finsight-api                      # terminal 1
+cd web && npm run dev             # terminal 2, http://localhost:5173
+```
+
+### What is in it
+
+* **Landing page** (`/`): what the product does, a preview built from the real results
+  screen, the workflow, capabilities, data sources and limits.
+* **Workspace** (`/app`): company search with autocomplete (ticker, name, exchange),
+  company details, a three-year period that defaults to the latest completed fiscal years,
+  an optional analysis question.
+* **Progress** (`/app/runs/<id>`): the eight backend stages with what each one found,
+  elapsed time, warnings and an activity feed. The page polls the run by its ID, so a
+  refresh or a shared link reconnects to the same run. No percentages are invented.
+* **Results**: company overview, key metrics, four charts with table views, ranked changes
+  with evidence status and source passages, a per-area interpretation, sources and
+  limitations, and downloads. Calculated observations, management explanations and AI
+  interpretation are labelled separately.
+* **Reports** (`/app/reports`): every stored analysis with run status and review status
+  (awaiting review or approved), opened without rerunning.
+* **Sample analyses** (`/app/sample/demo`, `/app/sample/nvda`): bundled static copies of real
+  pipeline runs. One is the synthetic company, one is a cached run on real filings. Both are
+  labelled, and both work when the backend is down.
+
+Live and sample data are never mixed: if live SEC access is not configured or fails, the app
+says so and offers the sample. It does not substitute demo figures.
+
+### Commands
+
+| Task | Command |
+|---|---|
+| Backend tests (offline) | `pytest` |
+| Frontend type check and production build | `cd web && npm run build` |
+| Browser tests (desktop, tablet, phone) | `cd web && npx playwright install chromium && npx playwright test` |
+| Regenerate API types after changing `finsight/api/schemas.py` | `python scripts/export_openapi.py && (cd web && npm run gen:api)` |
+| Rebuild the bundled samples | `python scripts/build_web_sample.py` (add `--live NVDA` to refresh the cached real-company run) |
+| Container image | `docker build -t finsight . && docker run -p 8000:8000 -v finsight-data:/data finsight` |
+
+The browser tests start their own offline server on port 8765; set `FINSIGHT_PYTHON` if
+`python` is not the interpreter with FinSight installed. GitHub Actions runs all of the
+above on every pull request ([.github/workflows/tests.yml](.github/workflows/tests.yml)).
+
+### Deploying
+
+GitHub hosts the code. The app itself needs a host that can run the Python backend; GitHub
+Pages cannot, it only serves static files. The recommended path is one Docker web service
+with a persistent disk, described step by step with costs in
+[docs/deployment.md](docs/deployment.md). **This repository is not deployed anywhere yet.**
+
+## CLI
+
+### Quick start
 
 ```bash
 python -m venv .venv && source .venv/bin/activate
@@ -64,6 +151,9 @@ Exit codes: `0` ready for review / partial / approved, `2` failed, `3` needs inp
 
 ## Configuration
 
+All variables are listed with comments in [.env.example](.env.example). API keys are read
+on the server only and are never sent to the browser.
+
 | Where | What |
 |---|---|
 | `FINSIGHT_SEC_USER_AGENT` | **Required for live runs.** Your name/app and a contact address. Never logged or committed. |
@@ -71,6 +161,13 @@ Exit codes: `0` ready for review / partial / approved, `2` failed, `3` needs inp
 | `FINSIGHT_LLM_MODEL` | Claude model (default `claude-opus-5-5`). |
 | `FINSIGHT_HOME` | Base folder for `.finsight/` cache + database and `out/` (default: current directory) |
 | `FINSIGHT_CONFIG_DIR` | Alternative config folder |
+| `FINSIGHT_PUBLIC_INVESTIGATOR` | Web API: `auto` (default) or `rule_based` to keep visitors on the free investigator even when a key is set |
+| `FINSIGHT_REVIEWER_TOKEN` | Web API: if set, approving a report needs this value (`X-Reviewer-Token`) |
+| `FINSIGHT_CORS_ORIGINS` | Web API: browser origins allowed to call the API when the frontend is hosted elsewhere. Empty (default) means same-origin only |
+| `FINSIGHT_RUNS_PER_HOUR`, `FINSIGHT_MAX_CONCURRENT_RUNS`, `FINSIGHT_MAX_QUEUED_RUNS`, `FINSIGHT_LOOKUPS_PER_MINUTE`, `FINSIGHT_RUN_BUDGET_SECONDS` | Web API limits (defaults 6, 2, 4, 60, 900) |
+| `FINSIGHT_TRUSTED_PROXY_HOPS` | Web API: number of reverse proxies in front, so rate limits count the visitor's address |
+| `HOST`, `PORT` | Web API bind address (default `127.0.0.1:8000`) |
+| `VITE_BASE`, `VITE_API_BASE_URL` | Frontend build only: path prefix and API origin when the frontend is hosted separately |
 | `config/settings.toml` | Request pacing, retries, backoff, period rules, tolerances, change thresholds, unsupported industries, investigation budgets (`[investigation]`), LLM settings and run budget (`[llm]`) |
 | `config/mappings.toml` | Standardized field → ordered XBRL tags, sign rules, derivations |
 | `config/companies/<CIK>.toml` | Per-company tag overrides |
@@ -121,6 +218,13 @@ status rules, run budgets, LLM outages with resume, review revision cycles and t
 and every reviewer check against tampered drafts. Claude-only paths are tested with a
 scripted fake model and a fake SDK client.
 
+The API tests (`tests/unit/test_api.py`) run the whole web workflow offline: lookups, the run
+lifecycle with real stage reporting, duplicate and rate limits, failure and resume, a run
+interrupted by a restart, approval with and without a token, downloads and path traversal,
+partial results from missing data, and checks that the OpenAPI file, the bundled samples
+and the browser-test fixtures match the current contract. The Playwright tests in `web/e2e/`
+drive the built app against that same offline backend at desktop, tablet and phone sizes.
+
 ## Project layout
 
 ```
@@ -147,12 +251,14 @@ finsight/
   review/          deterministic + LLM reviewer
   presentation.py  number formatting and the parser the reviewer checks it with
   cli.py
+  api/             FastAPI layer: schemas (the typed contract), views, background jobs, limits
 config/            settings.toml, mappings.toml, companies/
 fixtures/demo/     SYNTHETIC offline fixture (labelled), including synthetic 10-K text
-scripts/           fixture generator
-tests/unit/        offline tests
+scripts/           fixture generator, OpenAPI export, sample and browser-test fixture builders
+tests/unit/        offline tests (engine and API)
 tests/integration/ live SEC tests (opt-in)
-docs/              architecture and data policies
+web/               React + TypeScript frontend (Vite); e2e/ holds the Playwright tests
+docs/              architecture, deployment, OpenAPI schema, screenshots
 ```
 
 ## Roadmap
@@ -162,5 +268,7 @@ docs/              architecture and data policies
    budgets, evidence-backed findings, report (Markdown/HTML) with charts and citations,
    reviewer with at most two revision cycles, Anthropic SDK behind a provider interface.
    Still to do: the single-prompt baseline for comparison.
-3. **Stage 3:** Streamlit dashboard, downloads, scheduled check for new 10-K filings.
-4. **Stage 4:** uploaded reports, industry profiles, peers.
+3. **Stage 3 (this release):** web app: FastAPI layer, React workspace, progress, results
+   dashboard, report archive, downloads, bundled samples, container image.
+4. **Later:** PDF export, sign-in and per-user archives, a scheduled check for new 10-K
+   filings, uploaded reports, industry profiles, peers.
