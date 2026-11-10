@@ -83,6 +83,32 @@ def detect_changes(metrics_list: list[CalculatedMetric], labels: list[str],
                     f"{name.replace('_', ' ').capitalize()} moved from {'loss' if a.value < 0 else 'profit'} "
                     f"to {to} ({comp}).", [a.id, b.id], score=TRANSITION_SCORE)
 
+        # Net income: % change where the base is positive, else absolute change against materiality.
+        # Skipped when a profit/loss transition already flags the same comparison.
+        a_ni, b_ni = _get(metrics, "net_income", prev), _get(metrics, "net_income", cur)
+        transitioned = a_ni and b_ni and (a_ni.value < 0) != (b_ni.value < 0)
+        ng, nc = _get(metrics, "net_income_growth", comp), _get(metrics, "net_income_change", comp)
+        if nc and not transitioned and abs(nc.value) >= materiality:
+            if ng and abs(ng.value) > Decimal(str(settings.net_income_change_pct)):
+                add("net_income_change", "net_income_growth", comp, ng.value, "percent",
+                    settings.net_income_change_pct, "increase" if ng.value > 0 else "decrease",
+                    f"Net income {'rose' if ng.value > 0 else 'fell'} {abs(ng.value):.1f}% ({comp}).", [ng.id, nc.id])
+            elif ng is None and materiality:
+                sup = metrics.get(f"metric:net_income_growth:{comp}")
+                if sup and sup.status == MetricStatus.SUPPRESSED:
+                    add("net_income_change_nonpositive_base", "net_income_change", comp, nc.value, "USD",
+                        materiality, "increase" if nc.value > 0 else "decrease",
+                        f"Net income changed by {nc.value:,.0f} USD from a zero or negative base ({comp}); "
+                        "percentage change suppressed.", [nc.id, sup.id])
+
+        # Capital expenditure (a positive outflow): large swings in either direction.
+        cg, cc = _get(metrics, "capital_expenditure_growth", comp), _get(metrics, "capital_expenditure_change", comp)
+        if cg and cc and abs(cg.value) > Decimal(str(settings.capex_change_pct)) and abs(cc.value) >= materiality:
+            add("capex_change", "capital_expenditure_growth", comp, cg.value, "percent", settings.capex_change_pct,
+                "increase" if cg.value > 0 else "decrease",
+                f"Capital expenditure {'rose' if cg.value > 0 else 'fell'} {abs(cg.value):.1f}% ({comp}).",
+                [cg.id, cc.id])
+
         # Material increase in interest-bearing debt.
         dg, dc = _get(metrics, "interest_bearing_debt_growth", comp), _get(metrics, "interest_bearing_debt_change", comp)
         if dc and dc.value > 0 and dc.value >= materiality:

@@ -37,6 +37,9 @@ class AnalysisRequest(_Model):
     num_years: int = Field(default=3, ge=2, le=5)
     question: str | None = None
     offline: bool = False
+    investigate: bool = Field(default=True, description="Run Stage 2 investigation, report and review")
+    llm: Literal["auto", "anthropic", "stub"] = Field(
+        default="auto", description="auto: Anthropic when credentials are set and not offline, else the stub")
 
 
 class Company(_Model):
@@ -235,8 +238,25 @@ class AnalysisResult(_Model):
     changes: list[ChangeFlag]
 
 
-# --------------------------------------------------------------------------- Stage 2 placeholders
-# Defined now so storage and exports have a stable shape. Not produced in Stage 1.
+# --------------------------------------------------------------------------- Stage 2: evidence
+
+
+class FilingPassage(_Model):
+    """A section-aware chunk of annual-report text, with enough provenance to cite it."""
+
+    id: str = Field(description="psg:<accession>:<section>:<n>")
+    accession: str
+    form: str
+    filing_date: date
+    fiscal_period: str | None = Field(default=None, description="Fiscal period the filing reports on")
+    section: str = Field(description="e.g. item_7, item_8/note_14")
+    section_title: str
+    text: str
+    char_start: int = Field(description="Offset in the filing's extracted plain text")
+    char_end: int
+    source_document_id: str
+    url: str
+    is_fixture: bool = False
 
 
 class EvidenceStatus(str, Enum):
@@ -245,30 +265,106 @@ class EvidenceStatus(str, Enum):
     UNSUPPORTED = "unsupported"
 
 
+class EvidenceQuote(_Model):
+    """A verbatim excerpt the investigator relies on. ``verified`` is set by code, never by the LLM."""
+
+    passage_id: str
+    quote: str
+    verified: bool = False
+    verification_note: str = ""
+
+
+class ToolCallRecord(_Model):
+    step: int
+    tool: str
+    input: dict[str, Any]
+    ok: bool
+    summary: str
+
+
 class InvestigationFinding(_Model):
     id: str
     change_flag_id: str
-    calculated_observation: str
-    management_explanation: str | None = None
-    analyst_interpretation: str | None = None
+    calculated_observation: str = Field(description="What the numbers show; written by code from metrics")
+    management_explanation: str | None = Field(
+        default=None, description="What the company attributes the change to; must be backed by quotes")
+    analyst_interpretation: str | None = Field(default=None, description="Clearly labelled interpretation")
     unresolved_questions: list[str] = Field(default_factory=list)
+    assessment: Literal["favorable", "unfavorable", "ambiguous"] = "ambiguous"
     evidence_status: EvidenceStatus
+    status_reason: str = ""
+    quotes: list[EvidenceQuote] = Field(default_factory=list)
     metric_ids: list[str] = Field(default_factory=list)
     passage_ids: list[str] = Field(default_factory=list)
+    steps_used: int = 0
+    budget_exhausted: bool = False
+    tool_calls: list[ToolCallRecord] = Field(default_factory=list)
+    produced_by: str = Field(default="", description="Provider name, e.g. anthropic:<model> or offline-stub")
+    revision: int = 0
+
+
+class InvestigationResult(_Model):
+    findings: list[InvestigationFinding] = Field(default_factory=list)
+    not_investigated: list[str] = Field(default_factory=list, description="Change flag IDs skipped (budget)")
+    notes: list[str] = Field(default_factory=list)
+    llm_usage: dict[str, Any] = Field(default_factory=dict)
 
 
 class ReportClaim(_Model):
     id: str
+    section: str
     text: str
+    kind: Literal["numeric", "management_explanation", "analyst_interpretation", "unresolved", "limitation",
+                  "summary"] = "numeric"
     metric_ids: list[str] = Field(default_factory=list)
     passage_ids: list[str] = Field(default_factory=list)
     evidence_status: EvidenceStatus
+    finding_id: str | None = None
+
+
+class ChartSpec(_Model):
+    id: str
+    title: str
+    unit: str
+    filename: str
+    periods: list[str]
+    series: dict[str, list[float | None]] = Field(description="Series name -> values in display units")
+    metric_ids: dict[str, list[str | None]] = Field(description="Series name -> metric ID per period")
+    scale: float = Field(default=1.0, description="Display value = metric value / scale")
+    caption: str = ""
+
+
+class ReportDraft(_Model):
+    title: str
+    revision: int = 0
+    claims: list[ReportClaim]
+    charts: list[ChartSpec]
+    markdown: str = ""
+    html: str = Field(default="", description="Same content; charts referenced as charts/<file>.png")
+    passages: list[FilingPassage] = Field(default_factory=list, description="Every passage the report cites")
+    excluded_claims: list[ReportClaim] = Field(
+        default_factory=list, description="Claims removed during revision, kept for the audit trail")
+
+
+class ReviewDefect(_Model):
+    code: str
+    message: str
+    severity: Literal["error", "warning"] = "error"
+    route_to: Literal["drafting", "investigation", "none"] = "drafting"
+    claim_id: str | None = None
+    finding_id: str | None = None
+    change_flag_id: str | None = None
+    source: Literal["deterministic", "llm"] = "deterministic"
+    suggested_status: EvidenceStatus | None = Field(default=None, description="LLM reviewer's lower verdict")
 
 
 class ReviewResult(_Model):
     passed: bool
-    defects: list[str] = Field(default_factory=list)
+    defects: list[ReviewDefect] = Field(default_factory=list)
     revision_cycle: int = 0
+    checks_run: list[str] = Field(default_factory=list)
+    needs_analyst_attention: bool = False
+    stats: dict[str, Any] = Field(default_factory=dict)
 
 
 # --------------------------------------------------------------------------- workflow

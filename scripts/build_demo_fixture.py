@@ -21,7 +21,11 @@ from __future__ import annotations
 
 import json
 from datetime import date
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from build_demo_filings import build_all  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1] / "fixtures" / "demo"
 CIK = "0009999901"
@@ -46,27 +50,35 @@ FIELDS = {  # standardized name -> (us-gaap tag, period type)
     "ltd_noncurrent": ("LongTermDebtNoncurrent", "instant"),
     "ltd_current": ("LongTermDebtCurrent", "instant"),
     "commercial_paper": ("CommercialPaper", "instant"),
+    "research_and_development": ("ResearchAndDevelopmentExpense", "duration"),
+    "selling_and_marketing": ("SellingAndMarketingExpense", "duration"),
+    "general_and_administrative": ("GeneralAndAdministrativeExpense", "duration"),
 }
 
 # Latest presentation of each fiscal year, in USD millions.
 TRUTH = {
-    2022: dict(revenue=820, cost_of_revenue=340, gross_profit=480, operating_income=120, net_income=90,
+    2022: dict(research_and_development=160, selling_and_marketing=140, general_and_administrative=60,
+               revenue=820, cost_of_revenue=340, gross_profit=480, operating_income=120, net_income=90,
                operating_cash_flow=150, capital_expenditure=50, cash=200, current_assets=600,
                current_liabilities=300, assets=1700, liabilities=1000, equity=700, liabilities_and_equity=1700,
                ltd_noncurrent=520, ltd_current=40),
-    2023: dict(revenue=900, cost_of_revenue=370, gross_profit=530, operating_income=140, net_income=100,
+    2023: dict(research_and_development=175, selling_and_marketing=150, general_and_administrative=65,
+               revenue=900, cost_of_revenue=370, gross_profit=530, operating_income=140, net_income=100,
                operating_cash_flow=170, capital_expenditure=55, cash=230, current_assets=650,
                current_liabilities=320, assets=1850, liabilities=1100, equity=750, liabilities_and_equity=1850,
                ltd_noncurrent=510, ltd_current=45),
-    2024: dict(revenue=1000, cost_of_revenue=400, gross_profit=600, operating_income=150, net_income=-20,
+    2024: dict(research_and_development=200, selling_and_marketing=170, general_and_administrative=80,
+               revenue=1000, cost_of_revenue=400, gross_profit=600, operating_income=150, net_income=-20,
                operating_cash_flow=180, capital_expenditure=60, cash=250, current_assets=700,
                current_liabilities=350, assets=2000, liabilities=1200, equity=800, liabilities_and_equity=2000,
                ltd_noncurrent=500, ltd_current=50),
-    2025: dict(revenue=1180, cost_of_revenue=460, gross_profit=720, operating_income=230, net_income=150,
+    2025: dict(research_and_development=215, selling_and_marketing=190, general_and_administrative=85,
+               revenue=1180, cost_of_revenue=460, gross_profit=720, operating_income=230, net_income=150,
                operating_cash_flow=260, capital_expenditure=90, cash=310, current_assets=800,
                current_liabilities=380, assets=2300, liabilities=1350, equity=950, liabilities_and_equity=2300,
                ltd_noncurrent=480, ltd_current=50, commercial_paper=100),
-    2026: dict(revenue=1239, cost_of_revenue=520, gross_profit=719, operating_income=205, net_income=160,
+    2026: dict(research_and_development=240, selling_and_marketing=185, general_and_administrative=89,
+               revenue=1239, cost_of_revenue=520, gross_profit=719, operating_income=205, net_income=160,
                operating_cash_flow=240, capital_expenditure=300, cash=200, current_assets=760,
                current_liabilities=420, assets=2600, liabilities=1550, equity=1050, liabilities_and_equity=2600,
                ltd_noncurrent=900, ltd_current=60, commercial_paper=0),
@@ -184,6 +196,7 @@ def main() -> None:
     dump(ROOT / "submissions" / f"CIK{CIK}.json", build_submissions())
     dump(ROOT / "submissions" / "CIK0009999902.json", build_bank_submissions())
     dump(ROOT / "companyfacts" / f"CIK{CIK}.json", build_companyfacts())
+    build_all(ROOT, FILINGS)  # SYNTHETIC 10-K text for the investigator (scripts/build_demo_filings.py)
     print(f"wrote fixtures to {ROOT}")
 
 

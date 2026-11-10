@@ -26,6 +26,16 @@ DEMO_FIXTURES = REPO / "fixtures" / "demo"
 DEMO_CIK = "0009999901"
 
 
+@pytest.fixture(autouse=True)
+def _no_llm_credentials(request, monkeypatch):
+    """Tests never call a real LLM (without credentials "auto" picks the offline stub), except
+    opt-in tests marked ``llm``."""
+    if request.node.get_closest_marker("llm"):
+        return
+    for k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "FINSIGHT_LLM_MODEL"):
+        monkeypatch.delenv(k, raising=False)
+
+
 @pytest.fixture
 def settings(tmp_path):
     return load_settings(home=tmp_path)

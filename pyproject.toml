@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "finsight"
-version = "0.1.0"
+version = "0.2.0"
 description = "Financial Analysis Copilot: evidence-backed three-year analysis of SEC filers"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -12,6 +12,10 @@ dependencies = [
     "pydantic>=2.6,<3",
     "pandas>=2.1",
     "requests>=2.31,<3",
+    "beautifulsoup4>=4.12",
+    "lxml>=5",
+    "matplotlib>=3.8",
+    "anthropic>=1.0",
 ]
 
 [project.optional-dependencies]
@@ -27,5 +31,6 @@ include = ["finsight*"]
 testpaths = ["tests"]
 markers = [
     "live: real network calls to SEC EDGAR (opt-in: FINSIGHT_RUN_LIVE=1)",
+    "llm: real Anthropic API calls (opt-in: FINSIGHT_RUN_LLM=1 and ANTHROPIC_API_KEY; costs money)",
 ]
 addopts = "-ra"

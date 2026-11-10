@@ -24,6 +24,12 @@ interest_bearing_debt   Long-term debt including current maturities (noncurrent 
                         leases together; the metric note then says so. Total liabilities is never used
                         as a substitute.
 current_ratio           current_assets / current_liabilities. Not applicable for unclassified balance sheets.
+net_income_change       net_income[t] - net_income[t-1], USD.
+net_income_growth       Suppressed when the prior-year value is <= 0 (a loss base); the absolute change is still given.
+capital_expenditure_change / _growth   Change in capex (a positive outflow), USD and %.
+<expense>_pct_of_revenue  cost_of_revenue, research_and_development, selling_and_marketing,
+                        general_and_administrative, selling_general_and_administrative as a share of revenue.
+                        Used to break down operating-margin changes. Not applicable when the line is not reported.
 
 No metric here needs an opening balance, so no extra prior-year balance is fetched. Metrics that
 would (e.g. return on average equity) must fetch it or be marked unavailable.
@@ -48,10 +54,18 @@ METRIC_NAMES = (
     "cash_and_equivalents", "cash_and_equivalents_change",
     "interest_bearing_debt", "interest_bearing_debt_change", "interest_bearing_debt_growth",
     "current_ratio", "current_ratio_change",
+    "net_income_change", "net_income_growth",
+    "capital_expenditure_change", "capital_expenditure_growth",
 )
 
+# Expense lines used to break down operating-margin changes (reported only by some filers).
+EXPENSE_COMPONENTS = ("cost_of_revenue", "research_and_development", "selling_and_marketing",
+                      "general_and_administrative", "selling_general_and_administrative")
+
 # Fields that are optional because some business models do not report them.
-NOT_APPLICABLE_WHEN_MISSING = {"gross_profit", "current_assets", "current_liabilities"}
+NOT_APPLICABLE_WHEN_MISSING = {"gross_profit", "current_assets", "current_liabilities", "cost_of_revenue",
+                               "research_and_development", "selling_and_marketing", "general_and_administrative",
+                               "selling_general_and_administrative"}
 
 
 def mid(name: str, period: str) -> str:
@@ -218,6 +232,10 @@ def compute_metrics(report: ValidationReport) -> list[CalculatedMetric]:
                 "current_assets / current_liabilities")
         b.fcf(lbl)
         b.debt(lbl)
+        for comp in EXPENSE_COMPONENTS:
+            b.reported(comp, comp, lbl)
+            b.ratio(f"{comp}_pct_of_revenue", comp, "revenue", lbl, HUNDRED, "percent",
+                    f"{comp} / revenue x 100")
     for prev, cur in zip(b.labels, b.labels[1:]):
         b.diff("revenue_change", "revenue", prev, cur, "USD")
         b.growth("revenue_growth", "revenue", prev, cur)
@@ -230,4 +248,10 @@ def compute_metrics(report: ValidationReport) -> list[CalculatedMetric]:
         b.diff("interest_bearing_debt_change", "interest_bearing_debt", prev, cur, "USD")
         b.growth("interest_bearing_debt_growth", "interest_bearing_debt", prev, cur)
         b.diff("current_ratio_change", "current_ratio", prev, cur, "x")
+        b.diff("net_income_change", "net_income", prev, cur, "USD")
+        b.growth("net_income_growth", "net_income", prev, cur)
+        b.diff("capital_expenditure_change", "capital_expenditure", prev, cur, "USD")
+        b.growth("capital_expenditure_growth", "capital_expenditure", prev, cur)
+        for comp in EXPENSE_COMPONENTS:
+            b.diff(f"{comp}_pct_of_revenue_change", f"{comp}_pct_of_revenue", prev, cur, "percentage_points")
     return list(b.out.values())

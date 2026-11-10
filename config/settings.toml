@@ -41,9 +41,39 @@ revenue_change_pct = 10.0
 operating_margin_change_pp = 3.0
 free_cash_flow_change_pct = 20.0
 debt_increase_pct = 25.0
+net_income_change_pct = 20.0       # skipped when a profit/loss transition is already flagged
+capex_change_pct = 25.0
 # Absolute materiality, as a share of latest-year revenue, so small bases
 # do not dominate the ranking.
 materiality_pct_of_revenue = 0.5
+
+[investigation]
+# Stage 2: investigate flagged changes in the company's 10-K text.
+enabled = true
+max_findings = 8              # flags investigated, in rank order; the rest are listed as not investigated
+max_steps_per_finding = 3     # model turns that may call investigative tools, per finding
+max_tool_calls_per_step = 6
+max_additional_sources = 2    # extra 10-Ks the investigator may load (allowlisted to the plan's filings)
+search_results = 5
+passage_max_chars = 1200
+min_quote_chars = 20          # shorter quotes cannot be verified meaningfully
+max_revision_cycles = 2       # reviewer -> drafting/investigation loops before handing to the analyst
+
+[llm]
+# provider: auto = Anthropic when ANTHROPIC_API_KEY is set and the run is not --offline,
+# otherwise the clearly labelled offline stub (rule-based, no LLM).
+provider = "auto"
+model = "claude-opus-5-5"     # FINSIGHT_LLM_MODEL overrides this
+effort = "medium"
+max_tokens = 16000
+timeout_seconds = 300
+max_retries = 2
+server_side_fallback = true
+max_model_calls = 60          # per run, investigation + review
+max_total_tokens = 1500000
+# Used only for the cost ESTIMATE in run stats. Check current pricing.
+price_input_per_mtok = 4.0
+price_output_per_mtok = 20.0
 
 [scope]
 # SIC ranges outside the nonfinancial operating-company profile.

@@ -1,12 +1,12 @@
-# FinSight architecture (Stage 1)
+# FinSight architecture (Stages 1 and 2)
 
 FinSight answers: *How has this company performed over its last three completed fiscal
 years, what changed most, and what evidence helps explain those changes?*
 
 Stage 1 delivers the foundation: a reliable, traceable path from a company identifier
 to a validated three-year financial dataset with calculated metrics and ranked changes.
-Investigation, report writing and review (Stage 2) and the dashboard (Stage 3) build on
-these contracts.
+Stage 2 investigates the ranked changes in the company's 10-K text, writes a cited report
+and reviews it. The dashboard (Stage 3) builds on these contracts.
 
 ## Workflow
 
@@ -28,7 +28,17 @@ CLI / (Stage 3) Streamlit
         ▼
  ANALYZING ─ deterministic metrics + rule-based change flags
         ▼
- [Stage 2: INVESTIGATING → DRAFTING → REVIEWING (≤2 revision cycles)]
+ INVESTIGATING ─ load 10-K text (MD&A, notes) → per flag: bounded tool loop → finding
+        │      ├─ quotes checked verbatim by code; status can only be lowered
+        │      ├─ LLM budget used up ─▶ stop, remaining flags disclosed as not investigated
+        │      └─ LLM outage after SDK retries ─▶ FAILED (resume keeps finished findings)
+        ▼
+ DRAFTING ─ report from metrics + findings only (every claim cites metric / passage IDs)
+        ▼
+ REVIEWING ─ deterministic checks (+ LLM narrative review when Claude is used)
+        │      ├─ defect in a finding ─▶ INVESTIGATING (once, those flags only)
+        │      ├─ defect in a claim ─▶ DRAFTING (claim removed or status lowered, disclosed)
+        │      └─ after 2 revision cycles ─▶ keep defects, flag "needs analyst attention"
         ▼
  READY_FOR_REVIEW (no blocking issues)  or  PARTIAL (blocking issues disclosed)
         ▼
@@ -44,13 +54,13 @@ CLI / (Stage 3) Streamlit
 | NEEDS_INPUT | PLANNING / FAILED | user clarifies company |
 | COLLECTING | VALIDATING / FAILED | facts collected / retrieval failed after bounded retries |
 | VALIDATING | ANALYZING / COLLECTING / FAILED | validated / bounded refetch recovery |
-| ANALYZING | READY_FOR_REVIEW / PARTIAL / INVESTIGATING (Stage 2) / FAILED | |
-| INVESTIGATING | DRAFTING / PARTIAL / FAILED | Stage 2 |
-| DRAFTING | REVIEWING / FAILED | Stage 2 |
-| REVIEWING | DRAFTING / INVESTIGATING / READY_FOR_REVIEW / PARTIAL / FAILED | Stage 2 revision loop, capped |
+| ANALYZING | INVESTIGATING / READY_FOR_REVIEW / PARTIAL / FAILED | investigate (default) / `--no-investigate` |
+| INVESTIGATING | DRAFTING / PARTIAL / FAILED | findings recorded / LLM outage or misconfiguration |
+| DRAFTING | REVIEWING / FAILED | report drafted |
+| REVIEWING | DRAFTING / INVESTIGATING / READY_FOR_REVIEW / PARTIAL / FAILED | revision loop (max `max_revision_cycles`, default 2) / done |
 | READY_FOR_REVIEW | APPROVED / DRAFTING / COLLECTING | analyst approves / requests revision / refresh |
 | PARTIAL | APPROVED / COLLECTING / PLANNING | |
-| FAILED | the stage that failed | `finsight resume` |
+| FAILED | the stage that failed (incl. INVESTIGATING, DRAFTING, REVIEWING) | `finsight resume` |
 
 Defined in `finsight/workflow.py`; any other transition raises `InvalidTransitionError`.
 The orchestrator also has a hard step limit so no loop can run away.
@@ -65,8 +75,10 @@ The orchestrator also has a hard step limit so no loop can run away.
 | Validator | `validator.py` (code) | facts → `ValidationReport` | rounding-aware checks | issues, never balancing entries |
 | Analysis engine | `metrics.py` (code) | report → `CalculatedMetric`s | — | unavailable / suppressed with reason |
 | Change detector | `changes.py` (code) | metrics → ranked `ChangeFlag`s | `[analysis]` settings | — |
-| Investigator | Stage 2: LLM + typed tools | flags → `InvestigationFinding`s | `search_filing_sections`, `read_source_passage`, `get_validated_metric`, `compare_financial_components`, `request_additional_source` | step budget, then disclose the gap |
-| Writer & reviewer | Stage 2: LLM + deterministic checks | findings → report, `ReviewResult` | — | ≤2 revisions, then needs analyst review |
+| Filing text | `evidence/text.py`, `evidence/search.py` (code) | 10-K HTML → `FilingPassage`s; BM25 search | SEC archive, cache | missing text → disclosed limitation |
+| Investigator | `investigator/` (LLM + typed tools, loop in code) | `ChangeFlag` → `InvestigationFinding` | `search_filing_sections`, `read_source_passage`, `get_validated_metric`, `compare_financial_components`, `request_additional_source`, `record_finding` | 3 tool-using steps + 1 wrap-up per finding; run-level call/token budget |
+| Report writer | `report/` (code) | metrics + findings → `ReportDraft` (claims, charts, Markdown, HTML) | matplotlib | claims removed by review are disclosed |
+| Reviewer | `review/reviewer.py` (code + LLM) | draft → `ReviewResult` | deterministic checks; `submit_review` | routes defects back; ≤2 cycles, then needs analyst attention |
 
 ## Data policies
 
@@ -147,12 +159,92 @@ See the docstring in `finsight/metrics.py` for formulas. Key choices:
   completed stage), and query tables `sources`, `facts`, `issues`, `metrics`, `changes`.
 * A run interrupted mid-stage resumes at that stage with all earlier checkpoints reused.
 
-## What Stage 2 adds
+## Stage 2: investigation, report and review
 
-Filing-text retrieval with section-aware chunks (MD&A, notes, segments), the investigator
-loop with the typed tools above and a per-finding step budget, `InvestigationFinding`s that
-separate calculated observation / management explanation / analyst interpretation /
-unresolved question, report drafting with claim-level citations, and a reviewer that
-re-checks numbers deterministically before an LLM checks narrative support. Retrieved text
-is treated as untrusted data. A single-prompt baseline will be built alongside it so the
-value of the agentic loop can be measured.
+### Filing text
+
+The 10-K primary document for each fiscal year that a flagged comparison ends in is
+downloaded through the same SEC client and cache (filed documents never change, so a
+cached copy is always reused). `evidence/text.py` turns HTML into one line per block
+element, finds `Item N.` headings (a 10-K repeats them in its table of contents and as
+running page headers, so a new section starts only when the item changes and the longest
+occurrence wins), splits Item 8 into numbered notes, and chunks each section into
+paragraph-aligned passages of about 1,200 characters. Each `FilingPassage` keeps the
+accession, form, filing date, fiscal period, section, source URL, source document hash and
+its character range in the extracted text. Search is BM25 over those passages. Embeddings
+are not used: add them only if evaluation shows keyword search misses evidence.
+
+### Investigator
+
+For each flag, in rank order up to `max_findings`, the orchestrator runs a bounded loop:
+the model gets the calculated observation (written by code) and a small allowlisted tool
+set; at most `max_steps_per_finding` (3) turns may call investigative tools, then one
+wrap-up turn may only record. Tool inputs are validated with Pydantic; unknown tools and
+invalid input come back as error results. `request_additional_source` can only load 10-Ks
+in the analysis window, within a per-run budget. Filing text is returned inside an
+`untrusted_filing_text` field and the system prompt says it is data that cannot change the
+task (the demo fixture contains an injection line to exercise this).
+
+`record_finding` separates **management explanation** (attributed, backed by verbatim
+quotes), **analyst interpretation** (optional, labelled, no unsupported causal claims) and
+**unresolved questions**. Code then decides the evidence status:
+
+| Status | Rule |
+|---|---|
+| supported | explanation present, every quote verified, no open questions |
+| partially_supported | explanation with at least one verified quote, but some quotes failed or questions remain |
+| unsupported | no verified quote (the explanation is then dropped and disclosed as unverified) |
+
+The model's proposed status can lower this, never raise it. A quote that fails
+verification is sent back once (within the step budget) with the reason.
+
+### Report writer
+
+The writer adds no facts. Numbers enter prose only through `presentation.fmt_metric`
+from a `CalculatedMetric`; management statements only from verified findings. Every
+statement is a `ReportClaim` with metric IDs and/or passage IDs, rendered with `[Mn]` /
+`[Pn]` markers that resolve to the calculation notes and source list. Sections: executive
+summary, three-year table, four charts (each with periods, units, a CSV and the plotted
+values as a table), ranked changes, explanations, risks and missing information, sources,
+calculation notes and method. Markdown and HTML come from one block list; the exported
+HTML embeds the charts so it is a single file.
+
+### Reviewer
+
+Deterministic checks decide pass/fail: numbers in each claim match a metric the claim
+cites (at the displayed precision and unit), cited metrics exist and are available, every
+`[Pn]`/`[Mn]` resolves, quotes still match their passages, numbers in a management
+explanation appear in its quotes or cited metrics, claim and finding statuses agree,
+interpretations make no unhedged causal claim, every unavailable table metric is
+disclosed, chart values equal their metrics, and fixture/stub/not-approved labels are
+present. With Claude, an LLM then judges whether each quote set supports its explanation;
+its verdict can only lower a status. Defects route to investigation (once, for the
+affected flags) or drafting (claim removed or status lowered, and disclosed). After
+`max_revision_cycles` the remaining defects stay in `review.json` and the run is marked as
+needing analyst attention.
+
+### LLM provider
+
+`llm/provider.py` defines `LLMProvider` / `LLMSession`. `AnthropicProvider` uses the
+official SDK: model from `FINSIGHT_LLM_MODEL` (default `claude-opus-5-5`), effort from
+settings, tools passed as JSON Schema from the Pydantic inputs, assistant content passed
+back unchanged, server-side refusal fallback on, SDK retries for 429/5xx/connection
+errors. Errors map to `LLMTransientError` (resumable), `LLMConfigurationError`,
+`LLMRefusal` (finding recorded as unsupported) and `BudgetExceeded` (stop gracefully).
+Usage (calls, tokens, estimated cost from configured prices) is tracked per run.
+
+`llm/stub.py` is the offline stand-in. It is rule-based, not an AI model: it quotes a
+sentence only when the flagged item is its subject, it contains explicit attribution
+language and it moves in the flagged direction; otherwise it reports the change as
+unexplained. It writes no interpretation and the LLM review is skipped. It is labelled in
+the report, the findings and the run stats. On real 10-Ks it is deliberately
+conservative: in testing it explained 1 of 5 MSFT changes, 0 of 4 for AAPL and KO, where
+the filings do discuss them in less formulaic sentences. That gap is what the Claude
+investigator is for.
+
+### Not yet built
+
+* The single-prompt baseline (validated tables + retrieved excerpts → one report prompt)
+  for measuring what the agentic loop adds. Planned next, once runs with Claude are
+  available to compare.
+* Analyst "request revision" from READY_FOR_REVIEW (arrives with the Stage 3 dashboard).

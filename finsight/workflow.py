@@ -10,8 +10,9 @@ Side states: NEEDS_INPUT (ambiguity the user must resolve), PARTIAL (a result
 exists but blocking issues make some metrics unavailable), FAILED (resumable
 from the stage that failed).
 
-Stage 1 has no investigation or drafting yet, so ANALYZING may go straight to
-READY_FOR_REVIEW or PARTIAL.
+ANALYZING goes straight to READY_FOR_REVIEW or PARTIAL only when investigation
+is switched off (``--no-investigate``). REVIEWING sends work back to DRAFTING or
+INVESTIGATING at most ``max_revision_cycles`` times (default 2).
 """
 
 from __future__ import annotations
@@ -35,7 +36,7 @@ ALLOWED: dict[S, set[S]] = {
     S.READY_FOR_REVIEW: {S.APPROVED, S.DRAFTING, S.COLLECTING},
     S.PARTIAL: {S.APPROVED, S.COLLECTING, S.PLANNING},
     # A failed run resumes at the stage that failed.
-    S.FAILED: {S.PLANNING, S.COLLECTING, S.VALIDATING, S.ANALYZING},
+    S.FAILED: {S.PLANNING, S.COLLECTING, S.VALIDATING, S.ANALYZING, S.INVESTIGATING, S.DRAFTING, S.REVIEWING},
     S.APPROVED: set(),
 }
 

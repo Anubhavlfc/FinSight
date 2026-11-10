@@ -180,3 +180,37 @@ tags = ["us-gaap:ShortTermBorrowings"]
 required_for = []
 optional = true
 missing_severity = "info"
+
+# ---- Operating expense components (Stage 2) ---------------------------------------
+# Used only by the investigator's compare_financial_components tool to break an
+# operating-margin change into expense lines. Many filers combine or omit these
+# lines, so they are optional and a missing one is informational.
+
+[fields.research_and_development]
+period_type = "duration"
+tags = ["us-gaap:ResearchAndDevelopmentExpense",
+        "us-gaap:ResearchAndDevelopmentExpenseExcludingAcquiredInProcessCost"]
+required_for = []
+optional = true
+missing_severity = "info"
+
+[fields.selling_general_and_administrative]
+period_type = "duration"
+tags = ["us-gaap:SellingGeneralAndAdministrativeExpense"]
+required_for = []
+optional = true
+missing_severity = "info"
+
+[fields.selling_and_marketing]
+period_type = "duration"
+tags = ["us-gaap:SellingAndMarketingExpense"]
+required_for = []
+optional = true
+missing_severity = "info"
+
+[fields.general_and_administrative]
+period_type = "duration"
+tags = ["us-gaap:GeneralAndAdministrativeExpense"]
+required_for = []
+optional = true
+missing_severity = "info"

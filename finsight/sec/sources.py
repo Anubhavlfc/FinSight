@@ -59,6 +59,10 @@ class DataSource(Protocol):
         self, cik: str, must_include_accession: str | None = None, force_refresh: bool = False
     ) -> Fetched: ...
 
+    def filing_document(self, cik: str, accession: str, document: str) -> Fetched:
+        """Raw bytes of a filing's document (payload is ``bytes``)."""
+        ...
+
 
 def _make_doc(kind: SourceKind, cik: str | None, url: str, body: bytes, retrieved_at: datetime,
               from_cache: bool, is_fixture: bool) -> SourceDocument:
@@ -133,12 +137,12 @@ class LiveSecSource:
     stats: dict[str, int] = field(default_factory=lambda: {"network": 0, "cache_hits": 0})
 
     def _fetch(self, url: str, kind: SourceKind, cik: str | None, ttl: float | None,
-               reuse_if=None, force_refresh: bool = False) -> Fetched:
+               reuse_if=None, force_refresh: bool = False, raw: bool = False) -> Fetched:
         cached = None if force_refresh else self.cache.get(url)
         if cached is not None:
             body, meta = cached
             age = self.now() - meta.get("stored_at_epoch", 0)
-            payload = json.loads(body)
+            payload = body if raw else json.loads(body)
             fresh = (ttl is None or age <= ttl) and (reuse_if is None or reuse_if(payload))
             if fresh:
                 self.stats["cache_hits"] += 1
@@ -149,7 +153,8 @@ class LiveSecSource:
         self.stats["network"] += 1
         retrieved = datetime.now(timezone.utc)
         self.cache.put(url, resp.body, retrieved)
-        return Fetched(json.loads(resp.body), _make_doc(kind, cik, url, resp.body, retrieved, False, False))
+        payload = resp.body if raw else json.loads(resp.body)
+        return Fetched(payload, _make_doc(kind, cik, url, resp.body, retrieved, False, False))
 
     def company_tickers(self) -> Fetched:
         return self._fetch(TICKERS_URL, SourceKind.COMPANY_TICKERS, None, TICKERS_TTL_SECONDS)
@@ -169,6 +174,13 @@ class LiveSecSource:
         return self._fetch(COMPANY_FACTS_URL.format(cik=cik), SourceKind.COMPANY_FACTS, cik, None,
                            reuse_if=reuse_if, force_refresh=force_refresh)
 
+    def filing_document(self, cik: str, accession: str, document: str) -> Fetched:
+        # Filed documents never change, so a cached copy is always reused.
+        url = filing_url(cik, accession, document)
+        f = self._fetch(url, SourceKind.FILING_DOCUMENT, cik, None, raw=True)
+        f.document = f.document.model_copy(update={"accession": accession})
+        return f
+
 
 # --------------------------------------------------------------------------- offline fixtures
 
@@ -182,13 +194,14 @@ class FixtureSource:
         <root>/company_tickers.json
         <root>/submissions/CIK##########.json
         <root>/companyfacts/CIK##########.json
+        <root>/filings/<accession without dashes>/<primary document>
     """
 
     root: Path
     is_offline: bool = True
     stats: dict[str, int] = field(default_factory=lambda: {"network": 0, "cache_hits": 0, "fixture_reads": 0})
 
-    def _read(self, rel: str, kind: SourceKind, cik: str | None) -> Fetched:
+    def _read(self, rel: str, kind: SourceKind, cik: str | None, raw: bool = False) -> Fetched:
         path = Path(self.root) / rel
         if not path.exists():
             raise SourceNotFoundError(
@@ -198,7 +211,7 @@ class FixtureSource:
         self.stats["fixture_reads"] += 1
         mtime = datetime.fromtimestamp(path.stat().st_mtime, tz=timezone.utc)
         doc = _make_doc(kind, cik, f"fixture://{rel}", body, mtime, False, True)
-        return Fetched(json.loads(body), doc)
+        return Fetched(body if raw else json.loads(body), doc)
 
     def company_tickers(self) -> Fetched:
         return self._read("company_tickers.json", SourceKind.COMPANY_TICKERS, None)
@@ -212,3 +225,9 @@ class FixtureSource:
     def company_facts(self, cik: str, must_include_accession: str | None = None,
                       force_refresh: bool = False) -> Fetched:
         return self._read(f"companyfacts/CIK{cik}.json", SourceKind.COMPANY_FACTS, cik)
+
+    def filing_document(self, cik: str, accession: str, document: str) -> Fetched:
+        f = self._read(f"filings/{accession.replace('-', '')}/{document}", SourceKind.FILING_DOCUMENT, cik,
+                       raw=True)
+        f.document = f.document.model_copy(update={"accession": accession})
+        return f

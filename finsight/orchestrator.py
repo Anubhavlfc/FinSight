@@ -1,4 +1,4 @@
-"""Central orchestrator for the Stage 1 workflow.
+"""Central orchestrator for the workflow.
 
 The orchestrator owns the run state. Each stage is a plain function; the
 orchestrator decides what runs next, saves a checkpoint after each stage, and
@@ -9,6 +9,11 @@ routes failures:
 * transient retrieval failure after bounded retries -> FAILED, resumable at COLLECTING
 * stale company facts -> bounded VALIDATING -> COLLECTING recovery, then disclosed
 * blocking validation issues -> PARTIAL (results kept, affected metrics unavailable)
+* LLM transient failure after SDK retries -> FAILED, resumable at INVESTIGATING (findings kept)
+* LLM budget used up -> investigation stops, remaining changes disclosed, report still drafted
+* reviewer defects -> back to INVESTIGATING (once, for the affected changes) or DRAFTING
+  (claims removed or downgraded), at most ``max_revision_cycles`` times; after that the
+  remaining defects are kept and the run is flagged for analyst attention
 """
 
 from __future__ import annotations
@@ -26,6 +31,10 @@ from finsight.collector import CollectionResult, collect
 from finsight.config import Settings, load_mappings
 from finsight.contracts import (
     AnalysisPlan,
+    EvidenceStatus,
+    InvestigationResult,
+    ReportDraft,
+    ReviewResult,
     AnalysisRequest,
     AnalysisResult,
     RunState as S,
@@ -43,7 +52,12 @@ from finsight.errors import (
     TransientSourceError,
     UnsupportedCompanyError,
 )
+from finsight.investigator.stage import FilingTextCheckpoint, run_investigation
+from finsight.llm.factory import make_provider
+from finsight.llm.provider import LLMConfigurationError, LLMProvider, LLMTransientError
 from finsight.metrics import compute_metrics
+from finsight.report.writer import ReportInputs, write_report
+from finsight.review.reviewer import review
 from finsight.planner import PlanningError, build_plan
 from finsight.resolver import resolve_company
 from finsight.sec.sources import DataSource
@@ -64,7 +78,16 @@ class ValidationCheckpoint(BaseModel):
     recovery_attempts: int = 0
 
 
+class ReviewHistory(BaseModel):
+    reviews: list[ReviewResult] = Field(default_factory=list)
+
+    @property
+    def latest(self) -> ReviewResult | None:
+        return self.reviews[-1] if self.reviews else None
+
+
 SourceFactory = Callable[[AnalysisRequest], DataSource]
+ProviderFactory = Callable[[AnalysisRequest], "tuple[LLMProvider, str]"]
 
 
 def new_run_id() -> str:
@@ -72,11 +95,14 @@ def new_run_id() -> str:
 
 
 class Orchestrator:
-    def __init__(self, settings: Settings, store: Store, source_factory: SourceFactory):
+    def __init__(self, settings: Settings, store: Store, source_factory: SourceFactory,
+                 provider_factory: ProviderFactory | None = None):
         self.settings = settings
         self.store = store
         self.source_factory = source_factory
+        self.provider_factory = provider_factory or (lambda req: make_provider(settings, req))
         self._source: DataSource | None = None
+        self._provider: LLMProvider | None = None
 
     # ---- public API ---------------------------------------------------------------------
     def start(self, request: AnalysisRequest) -> WorkflowRun:
@@ -122,18 +148,20 @@ class Orchestrator:
                 self._fail(run, run.state, str(exc))
                 self.store.save_run(run)
             return run
+        self._provider = None
         started = time.monotonic()
         steps = {S.CREATED: self._created, S.PLANNING: self._plan, S.COLLECTING: self._collect,
-                 S.VALIDATING: self._validate, S.ANALYZING: self._analyze}
+                 S.VALIDATING: self._validate, S.ANALYZING: self._analyze, S.INVESTIGATING: self._investigate,
+                 S.DRAFTING: self._draft, S.REVIEWING: self._review}
         guard = 0
         while run.state not in TERMINAL:
             guard += 1
-            if guard > 20:  # hard stop: no loop in this workflow should get near this
+            if guard > 40:  # hard stop: no loop in this workflow should get near this
                 self._fail(run, run.state, "workflow exceeded its step limit")
                 break
             step = steps.get(run.state)
             if step is None:
-                self._fail(run, run.state, f"state {run.state.value} is not implemented in Stage 1")
+                self._fail(run, run.state, f"state {run.state.value} has no handler")
                 break
             step(run)
             self.store.save_run(run, cik=self._cik(run))
@@ -143,6 +171,13 @@ class Orchestrator:
             stats[f"source_{k}"] = stats.get(f"source_{k}", 0) + v
         self.store.save_run(run, cik=self._cik(run))
         return run
+
+    def provider(self, run: WorkflowRun) -> LLMProvider:
+        if self._provider is None:
+            self._provider, note = self.provider_factory(run.request)
+            run.stats["llm_provider"] = self._provider.name
+            run.stats["llm_provider_note"] = note
+        return self._provider
 
     def _cik(self, run: WorkflowRun) -> str | None:
         cp = self.store.load_checkpoint(run.id, "plan", PlanCheckpoint)
@@ -234,11 +269,147 @@ class Orchestrator:
         self.store.save_checkpoint(run.id, "analysis", result)
         self.store.save_analysis(run.id, result)
         blocking = [i for i in report.issues if i.severity == Severity.BLOCKING and not i.resolved]
-        if blocking:
+        run.stats["blocking_issues"] = len(blocking)
+        run.stats["change_flags"] = len(result.changes)
+        if run.request.investigate and self.settings.investigation.enabled:
+            transition(run, S.INVESTIGATING, f"{len(result.changes)} change(s) flagged for investigation")
+        elif blocking:
             transition(run, S.PARTIAL, f"{len(blocking)} blocking issue(s); affected metrics unavailable")
         else:
-            transition(run, S.READY_FOR_REVIEW,
-                       "data pipeline complete; investigation and report drafting arrive in Stage 2")
+            transition(run, S.READY_FOR_REVIEW, "data pipeline complete; investigation switched off")
+
+    # ---- Stage 2 ------------------------------------------------------------------------
+    def _inputs(self, run: WorkflowRun):
+        plan = self.store.load_checkpoint(run.id, "plan", PlanCheckpoint)
+        val = self.store.load_checkpoint(run.id, "validation", ValidationCheckpoint).report
+        analysis = self.store.load_checkpoint(run.id, "analysis", AnalysisResult)
+        return plan, val, analysis
+
+    def _investigate(self, run: WorkflowRun) -> None:
+        plan_cp, _val, analysis = self._inputs(run)
+        pending = run.stats.get("reinvestigate")
+        prior = self.store.load_checkpoint(run.id, "investigation", InvestigationResult)
+        if prior is not None and not pending and run.stats.get("investigation_complete"):
+            transition(run, S.DRAFTING, "investigation restored from checkpoint")
+            return
+        text = self.store.load_checkpoint(run.id, "filing_text", FilingTextCheckpoint) or FilingTextCheckpoint()
+        try:
+            provider = self.provider(run)
+        except Exception as exc:  # e.g. the anthropic package or credentials are missing
+            self._fail(run, S.INVESTIGATING, f"could not start the LLM provider: {exc}")
+            return
+        if prior is not None and prior.llm_usage and provider.usage.calls == 0:
+            # Fresh provider after a restart: carry the run's usage forward so budgets stay per run.
+            saved = run.stats.get("llm_usage") or prior.llm_usage
+            provider.usage.restore(saved if saved.get("model_calls", 0) >= prior.llm_usage.get("model_calls", 0)
+                                   else prior.llm_usage)
+
+        def save(res: InvestigationResult, txt: FilingTextCheckpoint) -> None:
+            self.store.save_checkpoint(run.id, "filing_text", txt)
+            self.store.save_checkpoint(run.id, "investigation", res)
+
+        try:
+            result, text = run_investigation(
+                plan_cp.plan, analysis.metrics, analysis.changes, self.source, provider, self.settings.investigation,
+                text, prior=prior, only_flags=pending, revision=run.stats.get("revision_cycle", 0), on_progress=save)
+        except LLMTransientError as exc:
+            self._fail(run, S.INVESTIGATING, f"{exc} (resume to continue; findings so far are kept)")
+            return
+        except LLMConfigurationError as exc:
+            self._fail(run, S.INVESTIGATING, f"{exc}. Fix the LLM configuration, or rerun with --llm stub.")
+            return
+        save(result, text)
+        self.store.save_sources(run.id, text.documents)
+        run.stats["reinvestigate"] = None
+        run.stats["investigation_complete"] = True
+        run.stats["llm_usage"] = result.llm_usage
+        run.stats["findings"] = {s.value: sum(f.evidence_status == s for f in result.findings) for s in EvidenceStatus}
+        transition(run, S.DRAFTING, f"investigated {len(result.findings)} change(s)"
+                   + (f" ({len(pending)} re-investigated after review)" if pending else ""))
+
+    def _report_inputs(self, run: WorkflowRun) -> ReportInputs:
+        plan_cp, val, analysis = self._inputs(run)
+        inv = self.store.load_checkpoint(run.id, "investigation", InvestigationResult)
+        text = self.store.load_checkpoint(run.id, "filing_text", FilingTextCheckpoint) or FilingTextCheckpoint()
+        collection = self.store.load_checkpoint(run.id, "collection", CollectionResult)
+        data_sources = list(plan_cp.documents) + ([collection.company_facts_document] if collection else [])
+        is_fixture = run.request.offline or any(d.is_fixture for d in data_sources)
+        provider_name = run.stats.get("llm_provider", "")
+        return ReportInputs(
+            plan=plan_cp.plan, validation=val, analysis=analysis, investigation=inv, passages=text.passages,
+            data_sources=data_sources, is_fixture=is_fixture, llm_is_stub="stub" in provider_name,
+            llm_name=provider_name or "no LLM", exclusions=dict(run.stats.get("exclusions") or {}),
+            revision=run.stats.get("revision_cycle", 0),
+            extra_limitations=list(plan_cp.plan.notes) + list(text.notes))
+
+    def _draft(self, run: WorkflowRun) -> None:
+        inputs = self._report_inputs(run)
+        draft = write_report(inputs)
+        self.store.save_checkpoint(run.id, "draft", draft)
+        transition(run, S.REVIEWING, f"report revision {draft.revision} drafted with {len(draft.claims)} claims")
+
+    def _review(self, run: WorkflowRun) -> None:
+        inputs = self._report_inputs(run)
+        draft = self.store.load_checkpoint(run.id, "draft", ReportDraft)
+        cycle = run.stats.get("revision_cycle", 0)
+        try:
+            provider = self.provider(run)
+        except Exception:
+            provider = None
+        result = review(draft, inputs.analysis.metrics, inputs.investigation, provider, inputs.is_fixture,
+                        inputs.llm_is_stub, cycle, self.settings.investigation.min_quote_chars)
+        history = self.store.load_checkpoint(run.id, "review", ReviewHistory) or ReviewHistory()
+        history.reviews.append(result)
+        self.store.save_checkpoint(run.id, "review", history)
+        if provider is not None:
+            run.stats["llm_usage"] = provider.usage.summary(provider.name, provider.is_stub)
+        actionable = [d for d in result.defects if d.route_to != "none" and d.severity == "error"]
+        if result.passed or not actionable or cycle >= self.settings.investigation.max_revision_cycles:
+            self._finalize(run, result, history)
+            return
+        run.stats["revision_cycle"] = cycle + 1
+        to_investigate: dict[str, list[str]] = {}
+        for d in actionable:
+            if d.route_to == "investigation" and d.change_flag_id:
+                to_investigate.setdefault(d.change_flag_id, []).append(d.message)
+        if to_investigate and not run.stats.get("reinvestigated"):
+            run.stats["reinvestigated"] = True
+            run.stats["reinvestigate"] = to_investigate
+            transition(run, S.INVESTIGATING, f"review cycle {cycle + 1}: re-investigating "
+                                             f"{len(to_investigate)} change(s)")
+            return
+        # Repair in drafting: downgrade findings the LLM reviewer did not accept; drop unverifiable claims.
+        inv = inputs.investigation
+        exclusions = dict(run.stats.get("exclusions") or {})
+        for d in actionable:
+            if d.source == "llm" and d.suggested_status and inv is not None:
+                for f in inv.findings:
+                    if f.id == d.finding_id:
+                        f.evidence_status = d.suggested_status
+                        f.status_reason += f"; lowered by review: {d.message}"
+                        f.unresolved_questions.append(f"Reviewer: {d.message}")
+            elif d.claim_id:
+                exclusions[d.claim_id] = f"{d.code}: {d.message}"
+        if inv is not None:
+            self.store.save_checkpoint(run.id, "investigation", inv)
+        run.stats["exclusions"] = exclusions
+        transition(run, S.DRAFTING, f"review cycle {cycle + 1}: {len(actionable)} defect(s) sent back to drafting")
+
+    def _finalize(self, run: WorkflowRun, result: ReviewResult, history: ReviewHistory) -> None:
+        remaining = [d for d in result.defects if d.severity == "error"]
+        result.needs_analyst_attention = bool(remaining)
+        history.reviews[-1] = result
+        self.store.save_checkpoint(run.id, "review", history)
+        run.stats["review"] = {"passed": result.passed, "revision_cycles": result.revision_cycle,
+                               "unresolved_defects": len(remaining), "needs_analyst_attention": bool(remaining),
+                               **result.stats}
+        note = ("review passed" if result.passed else
+                f"{len(remaining)} review defect(s) remain after {result.revision_cycle} revision cycle(s); "
+                "analyst attention needed")
+        if run.stats.get("blocking_issues"):
+            transition(run, S.PARTIAL, f"{note}; {run.stats['blocking_issues']} blocking data issue(s)")
+        else:
+            transition(run, S.READY_FOR_REVIEW, note)
 
 
 def load_results(store: Store, run_id: str) -> dict:
@@ -247,4 +418,8 @@ def load_results(store: Store, run_id: str) -> dict:
         "collection": store.load_checkpoint(run_id, "collection", CollectionResult),
         "validation": store.load_checkpoint(run_id, "validation", ValidationCheckpoint),
         "analysis": store.load_checkpoint(run_id, "analysis", AnalysisResult),
+        "filing_text": store.load_checkpoint(run_id, "filing_text", FilingTextCheckpoint),
+        "investigation": store.load_checkpoint(run_id, "investigation", InvestigationResult),
+        "draft": store.load_checkpoint(run_id, "draft", ReportDraft),
+        "review": store.load_checkpoint(run_id, "review", ReviewHistory),
     }

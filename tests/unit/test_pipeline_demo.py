@@ -35,7 +35,8 @@ def test_run_reaches_ready_for_review_not_approved(demo_run):
     run, _ = demo_run
     assert run.state == RunState.READY_FOR_REVIEW
     assert [t.to_state for t in run.history] == [
-        RunState.PLANNING, RunState.COLLECTING, RunState.VALIDATING, RunState.ANALYZING, RunState.READY_FOR_REVIEW]
+        RunState.PLANNING, RunState.COLLECTING, RunState.VALIDATING, RunState.ANALYZING,
+        RunState.INVESTIGATING, RunState.DRAFTING, RunState.REVIEWING, RunState.READY_FOR_REVIEW]
 
 
 def test_three_comparable_years_selected(demo_run):
@@ -127,12 +128,30 @@ def test_flags_ranked(demo_run):
     _, r = demo_run
     assert [(f.rule, f.comparison) for f in r["analysis"].changes] == [
         ("net_income_transition", "FY2024->FY2025"),
+        ("capex_change", "FY2025->FY2026"),        # 90 -> 300: +233%
         ("free_cash_flow_change", "FY2025->FY2026"),
         ("debt_increase", "FY2025->FY2026"),
         ("free_cash_flow_change", "FY2024->FY2025"),
+        ("capex_change", "FY2024->FY2025"),        # 60 -> 90: +50%
         ("revenue_change", "FY2024->FY2025"),
         ("operating_margin_change", "FY2024->FY2025"),
     ]
+
+
+def test_net_income_flag_not_duplicated_by_transition(demo_run):
+    _, r = demo_run
+    # FY2024 is a loss, so FY2024->FY2025 is a transition (not also a net_income_change flag);
+    # FY2025->FY2026 net income rose 6.7%, under the 20% setting.
+    assert not [f for f in r["analysis"].changes if f.rule.startswith("net_income_change")]
+
+
+def test_expense_components_as_share_of_revenue(demo_run):
+    _, r = demo_run
+    rd = metric(r, "research_and_development_pct_of_revenue", "FY2025")
+    assert rd.value == pytest.approx(Decimal(215) / Decimal(1180) * 100)
+    chg = metric(r, "research_and_development_pct_of_revenue_change", "FY2024->FY2025")
+    assert chg.unit == "percentage_points"
+    assert chg.value == pytest.approx(Decimal(215) / Decimal(1180) * 100 - Decimal(20))
 
 
 def test_sources_marked_as_fixtures(demo_run, store):

@@ -68,6 +68,11 @@ class FixtureBackedTransport:
             if self.facts_override:
                 return HttpResponse(200, self.facts_override.pop(0))
             return HttpResponse(200, (DEMO_FIXTURES / "companyfacts" / f"CIK{DEMO_CIK}.json").read_bytes())
+        prefix = f"https://www.sec.gov/Archives/edgar/data/{int(DEMO_CIK)}/"
+        if url.startswith(prefix):  # 10-K documents for the investigator
+            path = DEMO_FIXTURES / "filings" / url[len(prefix):]
+            if path.exists():
+                return HttpResponse(200, path.read_bytes())
         return HttpResponse(404, b"")
 
 
@@ -87,9 +92,9 @@ def test_repeat_run_reuses_cache(settings, store):
     n_first = len(transport.calls)
     second = orch.start(AnalysisRequest(identifier="DEMO", **REQ))
     assert first.state == second.state == RunState.READY_FOR_REVIEW
-    assert n_first == 3  # tickers, submissions, company facts
+    assert n_first == 5  # tickers, submissions, company facts, two 10-K documents
     assert len(transport.calls) == n_first  # everything served from cache the second time
-    assert second.stats["source_cache_hits"] == 3
+    assert second.stats["source_cache_hits"] == 5
 
 
 def test_transient_failure_fails_then_resume_completes(settings, store):
@@ -147,7 +152,8 @@ def test_interrupted_run_resumes_from_checkpoint(settings, store, monkeypatch, t
     reads_before = source.stats["fixture_reads"]
     run = orch.resume(run_id)
     assert run.state == RunState.READY_FOR_REVIEW
-    assert source.stats["fixture_reads"] == reads_before
+    # Only the two 10-K documents for the investigator were read; company facts were not.
+    assert source.stats["fixture_reads"] == reads_before + 2
 
 
 def test_failed_run_records_stage(settings, store):
