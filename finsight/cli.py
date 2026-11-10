@@ -3,6 +3,8 @@
     finsight analyze MSFT                      # live SEC data (needs FINSIGHT_SEC_USER_AGENT)
     finsight analyze DEMO --offline            # bundled SYNTHETIC fixture, no network
     finsight analyze MSFT --cutoff 2025-12-31 --latest-fy 2025
+    finsight analyze MSFT --llm stub           # rule-based offline stub instead of Claude
+    finsight analyze MSFT --no-investigate     # Stage 1 only: data pipeline, no report
     finsight resume <run_id> [--company CIK]   # continue an interrupted / failed / needs-input run
     finsight show <run_id>
     finsight approve <run_id> --note "checked"
@@ -79,6 +81,30 @@ def _print_run(run: WorkflowRun, store: Store, settings: Settings, out_root: Pat
                 print(f"  {i}. [{f.rule}] {f.description}")
         else:
             print("\nNo changes exceeded the configured investigation thresholds.")
+    inv, reviews = results.get("investigation"), results.get("review")
+    if inv is not None:
+        print(f"\nInvestigation ({run.stats.get('llm_provider', '?')}; {run.stats.get('llm_provider_note', '')})")
+        for f in inv.findings:
+            print(f"  [{f.evidence_status.value}] {f.calculated_observation}")
+            if f.management_explanation:
+                print(f"      management: {f.management_explanation[:200]}")
+            for q in f.unresolved_questions[:2]:
+                print(f"      unresolved: {q}")
+        for n in inv.notes:
+            print(f"  note: {n}")
+        u = inv.llm_usage
+        if u:
+            print(f"  LLM usage: {u.get('model_calls')} call(s), {u.get('input_tokens')} in / "
+                  f"{u.get('output_tokens')} out tokens, est. ${u.get('estimated_cost_usd')}")
+    if reviews is not None and reviews.latest:
+        r = reviews.latest
+        print(f"\nReview: {'passed' if r.passed else 'NOT passed'} after {r.revision_cycle} revision cycle(s); "
+              f"{len([d for d in r.defects if d.severity == 'error'])} unresolved defect(s)")
+        for d in r.defects[:10]:
+            print(f"  [{d.severity}/{d.source}] {d.code}: {d.message}")
+        for c in r.checks_run:
+            if c.startswith("llm_"):
+                print(f"  {c}")
     if val_cp:
         issues = [i for i in val_cp.report.issues if i.severity != Severity.INFO]
         print(f"\nValidation issues: {len(issues)} (info items are in the exports)")
@@ -99,7 +125,7 @@ def _print_run(run: WorkflowRun, store: Store, settings: Settings, out_root: Pat
 
 
 def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(prog="finsight", description="Financial Analysis Copilot (Stage 1)")
+    p = argparse.ArgumentParser(prog="finsight", description="Financial Analysis Copilot")
     p.add_argument("--db", type=Path, help="SQLite database path")
     p.add_argument("--out", type=Path, help="Output directory root")
     p.add_argument("--fixtures", type=Path, help="Offline fixtures directory")
@@ -114,7 +140,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Calendar year in which the latest fiscal year of the window ends")
     a.add_argument("--years", type=int, default=3)
     a.add_argument("--offline", action="store_true", help="Use bundled fixtures; no network")
-    a.add_argument("--question", default=None, help="Optional analysis question (used from Stage 2)")
+    a.add_argument("--question", default=None, help="Optional analysis question, given to the investigator")
+    a.add_argument("--llm", choices=["auto", "anthropic", "stub"], default="auto",
+                   help="auto: Claude when ANTHROPIC_API_KEY is set and not --offline, else the offline stub")
+    a.add_argument("--no-investigate", action="store_true",
+                   help="Stop after the data pipeline (no investigation, report or review)")
     a.add_argument("--no-export", action="store_true")
 
     r = sub.add_parser("resume", help="Resume an interrupted, failed or needs-input run")
@@ -144,7 +174,8 @@ def main(argv: list[str] | None = None) -> int:
         if args.cmd == "analyze":
             req = AnalysisRequest(identifier=args.identifier, cutoff_date=args.cutoff or date.today(),
                                   latest_fiscal_year=args.latest_fy, num_years=args.years,
-                                  question=args.question, offline=args.offline)
+                                  question=args.question, offline=args.offline, llm=args.llm,
+                                  investigate=not args.no_investigate)
             run = orch.start(req)
             return _print_run(run, store, settings, args.out, write=not args.no_export)
         if args.cmd == "resume":

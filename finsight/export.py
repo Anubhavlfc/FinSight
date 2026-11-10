@@ -134,10 +134,59 @@ def write_outputs(out_dir: Path, run: WorkflowRun, results: dict) -> list[Path]:
         "validation_report": val_cp.report.model_dump(mode="json") if val_cp else None,
         "analysis": analysis.model_dump(mode="json") if analysis else None,
     }
+    inv, draft, reviews, text = (results.get("investigation"), results.get("draft"), results.get("review"),
+                                 results.get("filing_text"))
+    if inv is not None:
+        full["investigation"] = inv.model_dump(mode="json")
+        path = out_dir / "findings.json"
+        path.write_text(json.dumps(inv.model_dump(mode="json"), indent=2, default=str))
+        written.append(path)
+    if reviews is not None:
+        full["review"] = reviews.model_dump(mode="json")
+        path = out_dir / "review.json"
+        path.write_text(json.dumps(reviews.model_dump(mode="json"), indent=2, default=str))
+        written.append(path)
+    if text is not None:
+        full["sources"] += [d.model_dump(mode="json") for d in text.documents]
+    if draft is not None:
+        written += write_report_files(out_dir, draft, run)
     path = out_dir / "analysis.json"
     path.write_text(json.dumps(full, indent=2, default=str))
     written.append(path)
     return written
+
+
+def write_report_files(out_dir: Path, draft, run: WorkflowRun) -> list[Path]:
+    """report.md + charts/ (PNG and CSV per chart) + a self-contained report.html + evidence_passages.csv."""
+    import base64
+
+    from finsight.report.charts import render_chart, write_chart_csv
+
+    written: list[Path] = []
+    charts_dir = out_dir / "charts"
+    charts_dir.mkdir(exist_ok=True)
+    html = draft.html
+    for spec in draft.charts:
+        png = charts_dir / spec.filename
+        render_chart(spec, png)
+        write_chart_csv(spec, charts_dir / spec.filename.replace(".png", ".csv"))
+        written += [png, charts_dir / spec.filename.replace(".png", ".csv")]
+        data = base64.b64encode(png.read_bytes()).decode()
+        html = html.replace(f'src="charts/{spec.filename}"', f'src="data:image/png;base64,{data}"')
+    note = ""
+    if run.state.value in ("READY_FOR_REVIEW", "PARTIAL", "APPROVED"):
+        note = f"\n\n---\nRun `{run.id}` state: {run.state.value}.\n"
+    md = out_dir / "report.md"
+    md.write_text(draft.markdown + note)
+    page = out_dir / "report.html"
+    page.write_text(html)
+    rows = [{"passage_id": p.id, "accession": p.accession, "form": p.form, "filing_date": p.filing_date,
+             "fiscal_period": p.fiscal_period, "section": p.section_title, "char_start": p.char_start,
+             "char_end": p.char_end, "url": p.url, "is_fixture": p.is_fixture, "text": p.text}
+            for p in draft.passages]
+    ev = out_dir / "evidence_passages.csv"
+    pd.DataFrame(rows).to_csv(ev, index=False)
+    return written + [md, page, ev]
 
 
 def status_counts(metrics: list[CalculatedMetric]) -> dict[str, int]:

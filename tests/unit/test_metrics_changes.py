@@ -135,3 +135,27 @@ def test_transition_ranked_first():
     m, _ = metrics_for(rows_with((100, 112, 125), (10, 11, 12), net=(-5, 4, 6)))
     flags = detect_changes(list(m.values()), ["FY2024", "FY2025", "FY2026"], AnalysisSettings())
     assert flags[0].rule == "net_income_transition" and flags[0].direction == "transition"
+
+
+def test_net_income_change_flag_on_positive_base():
+    # Net income 100 -> 70 (-30%) with revenue flat: flagged as a decrease; no transition involved.
+    m, _ = metrics_for(rows_with((1000, 1000, 1000), (150, 150, 150), net=(100, 70, 72)))
+    flags = detect_changes(list(m.values()), ["FY2024", "FY2025", "FY2026"], AnalysisSettings())
+    ni = [f for f in flags if f.rule == "net_income_change"]
+    assert [(f.comparison, f.direction) for f in ni] == [("FY2024->FY2025", "decrease")]
+    assert ni[0].observed == m["metric:net_income_growth:FY2024->FY2025"].value  # -30, full precision
+
+
+def test_net_income_change_from_loss_base_uses_absolute_change():
+    # -10 -> -40: still a loss (no transition), % growth suppressed, absolute change vs materiality.
+    m, _ = metrics_for(rows_with((1000, 1000, 1000), (150, 150, 150), net=(-10, -40, -41)))
+    flags = detect_changes(list(m.values()), ["FY2024", "FY2025", "FY2026"], AnalysisSettings())
+    ni = [f for f in flags if f.rule.startswith("net_income_change")]
+    assert [f.rule for f in ni] == ["net_income_change_nonpositive_base"] and ni[0].observed == -30
+
+
+def test_capex_change_flags_increase_and_decrease():
+    m, _ = metrics_for(rows_with((1000, 1000, 1000), (150, 150, 150), capex=(100, 200, 120)))
+    flags = detect_changes(list(m.values()), ["FY2024", "FY2025", "FY2026"], AnalysisSettings())
+    capex = {(f.comparison, f.direction) for f in flags if f.rule == "capex_change"}
+    assert capex == {("FY2024->FY2025", "increase"), ("FY2025->FY2026", "decrease")}
