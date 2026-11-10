@@ -127,3 +127,11 @@ def test_provider_choice(monkeypatch, tmp_path):
     assert isinstance(p, AnthropicProvider) and p.model == "claude-sonnet-5-5"
     p, _ = make_provider(s, AnalysisRequest(llm="stub", **req))
     assert isinstance(p, OfflineStubProvider)
+
+
+def test_finsight_key_fallback(monkeypatch, tmp_path):
+    s = load_settings(home=tmp_path)
+    monkeypatch.setenv("FINSIGHT_ANTHROPIC_API_KEY", "fallback-key-not-used")
+    p, _ = make_provider(s, AnalysisRequest(identifier="X", cutoff_date=date(2026, 1, 1)))
+    assert isinstance(p, AnthropicProvider)
+    assert p._client.api_key == "fallback-key-not-used"
