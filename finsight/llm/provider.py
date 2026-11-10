@@ -16,6 +16,8 @@ against the run budget in ``UsageTracker`` before it is made.
 
 from __future__ import annotations
 
+import os
+
 import json
 import logging
 from dataclasses import dataclass, field
@@ -202,7 +204,12 @@ class AnthropicProvider:
         if client is None:
             import anthropic
 
-            client = anthropic.Anthropic(timeout=settings.timeout_seconds, max_retries=settings.max_retries)
+            kwargs: dict[str, Any] = {}
+            fallback_key = os.environ.get("FINSIGHT_ANTHROPIC_API_KEY", "").strip()
+            if fallback_key and not os.environ.get("ANTHROPIC_API_KEY", "").strip():
+                kwargs["api_key"] = fallback_key
+            client = anthropic.Anthropic(timeout=settings.timeout_seconds, max_retries=settings.max_retries,
+                                         **kwargs)
         self._client = client
 
     def start(self, purpose: str, system: str, tools: list[ToolSpec],

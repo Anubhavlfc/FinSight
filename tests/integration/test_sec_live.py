@@ -68,11 +68,12 @@ def test_live_filing_text_investigation_and_report(ticker, tmp_path):
     assert r["draft"] is not None and r["review"].latest.passed, r["review"].latest.defects
 
 
-LLM_ENABLED = os.environ.get("FINSIGHT_RUN_LLM") == "1" and bool(os.environ.get("ANTHROPIC_API_KEY"))
+LLM_ENABLED = os.environ.get("FINSIGHT_RUN_LLM") == "1" and any(
+    os.environ.get(k) for k in ("ANTHROPIC_API_KEY", "FINSIGHT_ANTHROPIC_API_KEY"))
 
 
 @pytest.mark.llm
-@pytest.mark.skipif(not LLM_ENABLED, reason="set FINSIGHT_RUN_LLM=1 and ANTHROPIC_API_KEY (makes paid API calls)")
+@pytest.mark.skipif(not LLM_ENABLED, reason="set FINSIGHT_RUN_LLM=1 and ANTHROPIC_API_KEY or FINSIGHT_ANTHROPIC_API_KEY (paid API calls)")
 def test_live_claude_investigation(tmp_path):
     """Real Claude investigation and review on two flagged changes. Costs a few cents to a dollar."""
     settings = load_settings(home=tmp_path)

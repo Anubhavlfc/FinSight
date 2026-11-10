@@ -32,7 +32,7 @@ def _no_llm_credentials(request, monkeypatch):
     opt-in tests marked ``llm``."""
     if request.node.get_closest_marker("llm"):
         return
-    for k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "FINSIGHT_LLM_MODEL"):
+    for k in ("ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "FINSIGHT_ANTHROPIC_API_KEY", "FINSIGHT_LLM_MODEL"):
         monkeypatch.delenv(k, raising=False)
 
 

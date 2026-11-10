@@ -7,6 +7,7 @@ Environment variables:
 * ``FINSIGHT_HOME`` - base directory for cache, database and outputs (default: cwd).
 * ``FINSIGHT_LLM_MODEL`` - Claude model for investigation and review (default in settings.toml).
 * ``ANTHROPIC_API_KEY`` - read by the Anthropic SDK itself; never stored or logged by FinSight.
+* ``FINSIGHT_ANTHROPIC_API_KEY`` - fallback key name for hosts that strip ``ANTHROPIC_API_KEY``.
 """
 
 from __future__ import annotations
