@@ -14,7 +14,7 @@ import threading
 from contextlib import asynccontextmanager, contextmanager
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Iterator
+from typing import Any, Iterator
 
 from fastapi import Depends, FastAPI, Header, Query, Request
 from fastapi.exceptions import RequestValidationError
@@ -128,6 +128,24 @@ class Services:
 
     def claude_available(self) -> bool:
         return self.api.public_investigator == "auto" and has_anthropic_credentials()
+
+
+# Descriptions are spelled out because the defaults come from ``http.HTTPStatus``, whose
+# wording differs between Python versions (422 is "Unprocessable Entity" before 3.13 and
+# "Unprocessable Content" from 3.13). The exported schema must not depend on the interpreter.
+_ERROR_DESCRIPTIONS = {
+    401: "Unauthorized",
+    404: "Not Found",
+    409: "Conflict",
+    422: "Unprocessable Content",
+    429: "Too Many Requests",
+    502: "Bad Gateway",
+    503: "Service Unavailable",
+}
+
+
+def _errors(*codes: int) -> dict[int | str, dict[str, Any]]:
+    return {code: {"model": s.ErrorBody, "description": _ERROR_DESCRIPTIONS[code]} for code in codes}
 
 
 def create_app(settings: Settings | None = None, api: ApiSettings | None = None, *, db_path: Path | None = None,
@@ -290,7 +308,7 @@ def create_app(settings: Settings | None = None, api: ApiSettings | None = None,
         return s.SearchResponse(query=q, results=hits, live_search=live, note=note)
 
     @app.get("/api/companies/{identifier}", response_model=s.CompanyProfile, tags=["companies"],
-             dependencies=[Depends(limit_lookups)], responses={404: {"model": s.ErrorBody}})
+             dependencies=[Depends(limit_lookups)], responses=_errors(404))
     def company(identifier: str):
         if not identifier.strip() or len(identifier) > 80:
             raise ApiError(422, "invalid_input", "Give a ticker, CIK or company name.")
@@ -301,7 +319,7 @@ def create_app(settings: Settings | None = None, api: ApiSettings | None = None,
 
     # ---- runs ---------------------------------------------------------------------------
     @app.post("/api/runs", response_model=s.RunCreated, status_code=202, tags=["runs"],
-              responses={code: {"model": s.ErrorBody} for code in (404, 409, 422, 429, 502, 503)})
+              responses=_errors(404, 409, 422, 429, 502, 503))
     def create_run(body: s.RunCreate, request: Request):
         try:
             profile = svc.directory.profile(body.identifier)
@@ -353,14 +371,14 @@ def create_app(settings: Settings | None = None, api: ApiSettings | None = None,
         return s.RunList(runs=out)
 
     @app.get("/api/runs/{run_id}", response_model=s.RunStatus, tags=["runs"],
-             responses={404: {"model": s.ErrorBody}})
+             responses=_errors(404))
     def run_status(run_id: str):
         with open_store() as st:
             run, active = load_with_activity(run_id, st)
             return build_status(run, load_results(st, run.id), active, settings)
 
     @app.get("/api/runs/{run_id}/result", response_model=s.RunResult, tags=["runs"],
-             responses={404: {"model": s.ErrorBody}, 409: {"model": s.ErrorBody}})
+             responses=_errors(404, 409))
     def run_result(run_id: str):
         with open_store() as st:
             run, active = load_with_activity(run_id, st)
@@ -371,13 +389,13 @@ def create_app(settings: Settings | None = None, api: ApiSettings | None = None,
         return result
 
     @app.get("/api/runs/{run_id}/diagnostics", response_model=s.Diagnostics, tags=["runs"],
-             responses={404: {"model": s.ErrorBody}})
+             responses=_errors(404))
     def run_diagnostics(run_id: str):
         with open_store() as st:
             return build_diagnostics(get_run(run_id, st), st)
 
     @app.get("/api/runs/{run_id}/files/{name:path}", tags=["runs"], response_class=FileResponse,
-             responses={404: {"model": s.ErrorBody}})
+             responses=_errors(404))
     def run_file(run_id: str, name: str, inline: bool = False):
         with open_store() as st:
             run = get_run(run_id, st)
@@ -400,7 +418,7 @@ def create_app(settings: Settings | None = None, api: ApiSettings | None = None,
                            ["Follow its progress on the run page."])
 
     @app.post("/api/runs/{run_id}/resume", response_model=s.RunCreated, status_code=202, tags=["runs"],
-              responses={code: {"model": s.ErrorBody} for code in (404, 409, 422, 429)})
+              responses=_errors(404, 409, 422, 429))
     def resume_run(run_id: str, body: s.ResumeRequest):
         with open_store() as st:
             run = get_run(run_id, st)
@@ -423,7 +441,7 @@ def create_app(settings: Settings | None = None, api: ApiSettings | None = None,
         return s.RunCreated(run_id=run.id, reused=True)
 
     @app.post("/api/runs/{run_id}/approve", response_model=s.RunStatus, tags=["runs"],
-              responses={code: {"model": s.ErrorBody} for code in (401, 404, 409)})
+              responses=_errors(401, 404, 409))
     def approve_run(run_id: str, body: s.ApproveRequest, x_reviewer_token: str | None = Header(default=None)):
         if api.reviewer_token and not hmac.compare_digest(x_reviewer_token or "", api.reviewer_token):
             raise ApiError(401, "reviewer_token_required", "Approving a report needs the reviewer token.",
