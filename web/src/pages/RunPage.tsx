@@ -3,7 +3,7 @@ import { Link, useLocation, useParams } from "react-router-dom";
 import { api, ApiError } from "../api/client";
 import { DEFAULT_SAMPLE } from "../api/sample";
 import type { RunResult, RunStatus } from "../api/types";
-import { ErrorNotice, Loading, Notice } from "../components/common";
+import { ErrorNotice, Notice, ReportSkeleton } from "../components/common";
 import { Progress } from "../components/Progress";
 import { ResultView } from "../components/ResultView";
 import { displayCompany } from "../lib/format";
@@ -113,7 +113,7 @@ export function RunPage() {
           extra={
             <>
               <Link className="btn btn-sm" to="/app/reports">Open the report archive</Link>
-              <Link className="btn btn-sm btn-quiet" to={`/app/sample/${DEFAULT_SAMPLE}`}>Open the sample</Link>
+              <Link className="btn btn-sm btn-quiet" to={`/app/sample/${DEFAULT_SAMPLE}`}>Explore sample report</Link>
             </>
           }
         />
@@ -121,7 +121,7 @@ export function RunPage() {
       </div>
     );
   }
-  if (!status) return <Loading label="Loading the analysis" />;
+  if (!status) return <ReportSkeleton label="Loading the analysis" />;
 
   const banner = reused ? (
     <Notice tone="teal" icon="info" title="Connected to an analysis that was already running">
@@ -131,7 +131,7 @@ export function RunPage() {
 
   if (hasResults) {
     if (resultError) return <div className="page-narrow"><ErrorNotice error={resultError} title="The results could not be loaded" onRetry={refresh} /></div>;
-    if (!result) return <Loading label="Loading the results" />;
+    if (!result) return <ReportSkeleton label="Loading the results" />;
     return <ResultView result={result} source={{ kind: "run", id: runId }} banner={banner} onStatus={(s) => { setStatus(s); refresh(); }} />;
   }
   return (

@@ -10,9 +10,9 @@ It has two front ends over one engine: a **web app** (React + FastAPI) and a **C
 
 ![Landing page](docs/screenshots/landing.png)
 
-| Analysis in progress | Key metrics (live SEC data) |
+| Analysis in progress | Report summary (stored real-company sample) |
 |---|---|
-| ![Progress](docs/screenshots/progress.png) | ![Key metrics](docs/screenshots/report-metrics.png) |
+| ![Progress](docs/screenshots/progress.png) | ![Report summary](docs/screenshots/report-metrics.png) |
 | **Findings with evidence** | **Report archive** |
 | ![Findings](docs/screenshots/findings.png) | ![Reports](docs/screenshots/reports.png) |
 

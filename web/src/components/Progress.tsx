@@ -6,7 +6,7 @@ import type { ActivityItem, RunStatus, StageStatus } from "../api/types";
 import { displayCompany, formatDuration, formatTime, periodRange } from "../lib/format";
 import { toApiError, useNow } from "../lib/hooks";
 import type { ApiError } from "../api/client";
-import { Badge, ErrorNotice, Notice, PhaseBadge, SyntheticBadge } from "./common";
+import { ErrorNotice, Notice, PhaseBadge, Skeleton, SyntheticBadge } from "./common";
 import { Diagnostics } from "./Diagnostics";
 import { Icon, type IconName } from "./Icon";
 
@@ -50,11 +50,20 @@ export function StageList({ stages, paused }: { stages: StageStatus[]; paused?: 
   );
 }
 
+/** One segment per backend stage. It mirrors the stage list exactly and never estimates. */
+function StageTrack({ stages }: { stages: StageStatus[] }) {
+  return (
+    <div className="stage-track" aria-hidden="true">
+      {stages.map((s) => <span key={s.key} className={`is-${s.state}`} />)}
+    </div>
+  );
+}
+
 const ACTIVITY_ICON: Record<ActivityItem["kind"], IconName> = { info: "dot", success: "check", warning: "alert", error: "x" };
 const ACTIVITY_WORD: Record<ActivityItem["kind"], string> = { info: "", success: "Done: ", warning: "Warning: ", error: "Error: " };
 
 export function ActivityFeed({ items }: { items: ActivityItem[] }) {
-  if (items.length === 0) return <p className="muted">Nothing has happened yet. The run is waiting for a worker.</p>;
+  if (items.length === 0) return <p className="muted">Nothing has happened yet. The analysis is waiting for a worker.</p>;
   return (
     <ol className="activity" aria-label="Activity, newest first">
       {[...items].reverse().map((item, i) => (
@@ -80,7 +89,7 @@ interface ProgressProps {
   onRefresh: () => void;
 }
 
-/** Everything shown before a run has results: live stages, activity, and recovery when it stops. */
+/** Everything shown before an analysis has results: the current stage, the steps on demand, and recovery when it stops. */
 export function Progress({ status, connectionError, onRefresh }: ProgressProps) {
   const live = status.phase === "queued" || status.phase === "running";
   const now = useNow(live);
@@ -101,31 +110,38 @@ export function Progress({ status, connectionError, onRefresh }: ProgressProps) 
   };
 
   const company = status.company ? displayCompany(status.company.name) : status.identifier;
+  const done = status.stages.filter((s) => s.state === "done").length;
+  const current = status.stages.find((s) => s.state === "active" || s.state === "failed");
   return (
     <div className="progress">
-      <header className="run-head">
-        <div>
-          <p className="eyebrow">Analysis run</p>
+      <header className="report-head">
+        <div className="report-head-main">
+          <p className="eyebrow">Analysis in progress</p>
           <h1>{company}</h1>
           <p className="run-meta">
-            {status.company?.ticker && <span className="mono">{status.company.ticker}</span>}
-            <span>{status.periods.length ? periodRange(status.periods) : "Fiscal years not selected yet"}</span>
-            <span className="mono">{status.id}</span>
+            {status.company?.ticker && <span className="ticker">{status.company.ticker}</span>}
+            <span className="num">{status.periods.length ? periodRange(status.periods) : "Fiscal years not selected yet"}</span>
           </p>
         </div>
-        <div className="run-head-side">
-          <PhaseBadge phase={status.phase} />
-          {status.synthetic && <SyntheticBadge />}
+        <div className="report-head-side">
+          <div className="report-status">
+            <PhaseBadge phase={status.phase} />
+            {status.synthetic && <SyntheticBadge />}
+          </div>
         </div>
       </header>
 
       <section className="panel now" aria-label="Current status">
         <div className="now-main">
           {live && <span className="spinner" aria-hidden="true" />}
-          <p role="status" aria-live="polite" className="now-text">
-            {status.current_activity}
-          </p>
+          <div>
+            {current && live && <p className="now-stage">Stage {status.stages.indexOf(current) + 1} of {status.stages.length}: {current.label}</p>}
+            <p role="status" aria-live="polite" className="now-text">
+              {status.current_activity}
+            </p>
+          </div>
         </div>
+        <StageTrack stages={status.stages} />
         <dl className="now-facts">
           <div>
             <dt>Elapsed</dt>
@@ -133,9 +149,7 @@ export function Progress({ status, connectionError, onRefresh }: ProgressProps) 
           </div>
           <div>
             <dt>Stages done</dt>
-            <dd className="num">
-              {status.stages.filter((s) => s.state === "done").length} of {status.stages.length}
-            </dd>
+            <dd className="num">{done} of {status.stages.length}</dd>
           </div>
           {status.investigation && (
             <div>
@@ -147,7 +161,7 @@ export function Progress({ status, connectionError, onRefresh }: ProgressProps) 
           )}
           {status.investigator && (
             <div>
-              <dt>Investigator</dt>
+              <dt>Explanations found by</dt>
               <dd>{status.investigator.name}</dd>
             </div>
           )}
@@ -156,8 +170,8 @@ export function Progress({ status, connectionError, onRefresh }: ProgressProps) 
 
       {connectionError && (
         <Notice tone="amber" title="Connection to the analysis service was lost" role="status"
-          actions={<button type="button" className="btn btn-sm" onClick={onRefresh}><Icon name="refresh" size={14} /> Check now</button>}>
-          <p>Showing the last known status. The run continues on the server, and this page keeps retrying.</p>
+          actions={<button type="button" className="btn btn-sm" onClick={onRefresh}><Icon name="refresh" size={14} /> Retry connection</button>}>
+          <p>Showing the last known status. The analysis continues on the server, and this page keeps retrying.</p>
         </Notice>
       )}
 
@@ -171,14 +185,14 @@ export function Progress({ status, connectionError, onRefresh }: ProgressProps) 
                 </button>
               )}
               <Link className="btn btn-sm" to="/app">Start a different analysis</Link>
-              <Link className="btn btn-sm btn-quiet" to={`/app/sample/${DEFAULT_SAMPLE}`}>Open the sample</Link>
+              <Link className="btn btn-sm btn-quiet" to={`/app/sample/${DEFAULT_SAMPLE}`}>Explore sample report</Link>
             </>
           }>
           <p>{status.error.message}</p>
           {status.error.next_steps.length > 0 && (
             <ul>{status.error.next_steps.map((s) => <li key={s}>{s}</li>)}</ul>
           )}
-          <p className="muted">No figures were substituted. Completed stages are kept.</p>
+          <p className="muted">No figures were substituted. Completed stages are kept, and so is your company selection.</p>
         </Notice>
       )}
 
@@ -198,7 +212,7 @@ export function Progress({ status, connectionError, onRefresh }: ProgressProps) 
               <li key={c.cik}>
                 <div>
                   <p>{displayCompany(c.name)}</p>
-                  <p className="muted mono">{c.tickers.join(", ") || "no ticker"} · CIK {c.cik}</p>
+                  <p className="muted">{c.tickers.join(", ") || "No ticker"} · CIK {c.cik}</p>
                 </div>
                 <button type="button" className="btn btn-sm" disabled={acting} onClick={() => resume(c.cik)}>Choose</button>
               </li>
@@ -215,22 +229,32 @@ export function Progress({ status, connectionError, onRefresh }: ProgressProps) 
         </Notice>
       )}
 
-      <div className="progress-grid">
-        <section className="panel" aria-labelledby="stages-title">
-          <div className="panel-head">
-            <h2 id="stages-title">Stages</h2>
-            <span className="muted">Reported by the backend as each stage finishes</span>
+      <details className="steps" open={!live || undefined}>
+        <summary>
+          <Icon name="chevron" size={14} /> Processing steps
+          <span className="muted num">{done} of {status.stages.length} done · {status.activity.length} event{status.activity.length === 1 ? "" : "s"}</span>
+        </summary>
+        <div className="progress-grid">
+          <section aria-labelledby="stages-title">
+            <h2 id="stages-title" className="group-title">Stages</h2>
+            <p className="muted small">Reported by the analysis service as each stage finishes.</p>
+            <StageList stages={status.stages} paused={!live && status.phase !== "needs_input"} />
+          </section>
+          <section aria-labelledby="activity-title">
+            <h2 id="activity-title" className="group-title">Activity</h2>
+            <ActivityFeed items={status.activity} />
+          </section>
+        </div>
+      </details>
+
+      {live && (
+        <div className="pending-report" aria-hidden="true">
+          <p className="muted small">The report appears here when the analysis finishes.</p>
+          <div className="skeleton-row">
+            {[0, 1, 2, 3].map((i) => <Skeleton key={i} height={108} />)}
           </div>
-          <div className="panel-body"><StageList stages={status.stages} paused={!live && status.phase !== "needs_input"} /></div>
-        </section>
-        <section className="panel" aria-labelledby="activity-title">
-          <div className="panel-head">
-            <h2 id="activity-title">Activity</h2>
-            <Badge>{status.activity.length} event{status.activity.length === 1 ? "" : "s"}</Badge>
-          </div>
-          <div className="panel-body"><ActivityFeed items={status.activity} /></div>
-        </section>
-      </div>
+        </div>
+      )}
 
       <section className="dev-toggle">
         <button type="button" className="btn btn-sm btn-quiet" aria-expanded={showDev} onClick={() => setShowDev((v) => !v)}>

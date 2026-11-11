@@ -3,7 +3,7 @@ import { ApiError } from "../api/client";
 import type { Evidence, Phase, ReviewStatus } from "../api/types";
 import { Icon, type IconName } from "./Icon";
 
-type Tone = "teal" | "amber" | "coral" | "neutral";
+export type Tone = "teal" | "green" | "amber" | "coral" | "neutral";
 
 export function Badge({ tone = "neutral", icon, children, square, title }: {
   tone?: Tone; icon?: IconName; children: ReactNode; square?: boolean; title?: string;
@@ -120,6 +120,39 @@ export function SyntheticBadge() {
     <Badge tone="amber" icon="layers" square title="Made-up company, figures and filing text, used to demonstrate the workflow">
       Synthetic sample
     </Badge>
+  );
+}
+
+/** A status with its own caption, so "processing" and "analyst review" are never read as one thing. */
+export function StatusPair({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <span className="status-pair">
+      <span className="status-key">{label}</span>
+      {children}
+    </span>
+  );
+}
+
+/** Placeholder with the shape of the content that is loading, so the page does not jump when it arrives. */
+export function Skeleton({ height, width, className = "" }: { height: number | string; width?: number | string; className?: string }) {
+  return <span className={`skeleton ${className}`} style={{ height, width: width ?? "100%" }} aria-hidden="true" />;
+}
+
+export function ReportSkeleton({ label }: { label: string }) {
+  return (
+    <div className="report-skeleton" role="status">
+      <span className="sr-only">{label}</span>
+      <Skeleton height={14} width={120} />
+      <Skeleton height={34} width="min(420px, 80%)" />
+      <Skeleton height={16} width="min(520px, 90%)" />
+      <div className="skeleton-row">
+        {[0, 1, 2, 3].map((i) => <Skeleton key={i} height={132} />)}
+      </div>
+      <div className="skeleton-row two">
+        <Skeleton height={300} />
+        <Skeleton height={300} />
+      </div>
+    </div>
   );
 }
 

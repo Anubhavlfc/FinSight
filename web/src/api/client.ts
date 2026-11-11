@@ -74,8 +74,8 @@ async function request<T>(path: string, init: RequestInit = {}, signal?: AbortSi
     throw new ApiError(
       503,
       {
-        code: "network",
-        message: "The analysis service is not available at this address.",
+        code: "no_service",
+        message: "No analysis service is connected to this site.",
         next_steps: ["The sample analysis works without the service."],
       },
       true,

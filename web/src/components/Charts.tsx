@@ -3,7 +3,7 @@ import type { Chart } from "../api/types";
 import { useWidth } from "../lib/hooks";
 
 const SERIES_COLORS = ["var(--series-1)", "var(--series-2)", "var(--series-3)"];
-const HEIGHT = 250;
+const HEIGHT = 240;
 const M = { top: 14, right: 16, bottom: 30, left: 52 };
 
 /** Values arrive in the chart's display unit (USD millions, USD billions or %). */
@@ -205,16 +205,47 @@ function ValuesTable({ chart }: { chart: Chart }) {
   );
 }
 
+/**
+ * Three-point trend for a metric card. It shows shape only, in a neutral colour, because
+ * whether a rise is good depends on the metric. The exact values sit beside it as text.
+ */
+export function Sparkline({ values }: { values: (number | null)[] }) {
+  const W = 96;
+  const H = 32;
+  const pad = 4;
+  const present = values.filter((v): v is number => v !== null);
+  if (present.length < 2) return <span className="spark spark-empty" aria-hidden="true" />;
+  const lo = Math.min(0, ...present);
+  const hi = Math.max(0, ...present);
+  const span = hi - lo || 1;
+  const x = (i: number) => pad + (i * (W - pad * 2)) / Math.max(1, values.length - 1);
+  const y = (v: number) => pad + (H - pad * 2) * (1 - (v - lo) / span);
+  const pts = values.map((v, i) => (v === null ? null : ([x(i), y(v)] as const)));
+  const d = pts.map((p, i) => (p ? `${i === 0 || !pts[i - 1] ? "M" : "L"}${p[0].toFixed(1)},${p[1].toFixed(1)}` : "")).join("");
+  const last = [...pts].reverse().find((p) => p);
+  return (
+    <svg className="spark" width={W} height={H} viewBox={`0 0 ${W} ${H}`} aria-hidden="true" focusable="false">
+      {lo < 0 && <line x1={pad} x2={W - pad} y1={y(0)} y2={y(0)} stroke="var(--line-strong)" strokeWidth={1} strokeDasharray="2 3" />}
+      <path d={d} fill="none" stroke="var(--ink-2)" strokeWidth={1.75} strokeLinejoin="round" strokeLinecap="round" />
+      {last && <circle cx={last[0]} cy={last[1]} r={3} fill="var(--ink)" />}
+    </svg>
+  );
+}
+
 export function ChartCard({ chart, compact }: { chart: Chart; compact?: boolean }) {
   const [view, setView] = useState<"chart" | "table">("chart");
   const id = useId();
   const isLine = chart.kind === "line";
+  const hasNegative = chart.series.some((s) => s.values.some((v) => v !== null && v < 0));
   return (
     <figure className="chart-card panel" aria-labelledby={`${id}-title`}>
       <div className="chart-head">
         <div>
-          <h3 id={`${id}-title`}>{chart.title}</h3>
-          <p className="muted chart-unit">{chart.unit}</p>
+          <h4 id={`${id}-title`}>{chart.title}</h4>
+          <p className="muted chart-unit">
+            {chart.unit}
+            {hasNegative && !isLine ? " · bars below the zero line are negative" : ""}
+          </p>
         </div>
         {!compact && (
           <div className="seg" role="group" aria-label={`View for ${chart.title}`}>
