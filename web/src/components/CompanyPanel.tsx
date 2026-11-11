@@ -6,11 +6,15 @@ import type { CompanyHit, CompanyProfile } from "../api/types";
 import { displayCompany, formatDate } from "../lib/format";
 import { lastRun, toApiError, useDebounced } from "../lib/hooks";
 import { useService } from "../lib/service";
-import { Badge, ErrorNotice, Notice, SyntheticBadge } from "./common";
+import { ErrorNotice, Notice, SyntheticBadge } from "./common";
 import { Icon } from "./Icon";
 
 const LIVE_EXAMPLES = ["MSFT", "COST", "NVDA"];
 const SAMPLE_EXAMPLE = "DEMO";
+const SAMPLE_PATH = `/app/sample/${DEFAULT_SAMPLE}`;
+
+export const ELIGIBILITY =
+  "Works for US-listed operating companies that file an annual Form 10-K in US dollars. Banks, insurers, broker-dealers, REITs and foreign filers are not supported.";
 
 type ProfileState =
   | { state: "idle" }
@@ -18,7 +22,23 @@ type ProfileState =
   | { state: "ready"; profile: CompanyProfile }
   | { state: "error"; identifier: string; error: ApiError };
 
-export function CompanyPanel({ onSubmitted }: { onSubmitted?: () => void }) {
+/** Why the service cannot be used, in the words a visitor needs. The cause is whatever the health check reported. */
+export function offlineReason(error: ApiError): string {
+  if (error.code === "no_service") {
+    return "This site is running without an analysis service, so new analyses cannot start here.";
+  }
+  if (error.code === "timeout") return "The analysis service took too long to answer, so new analyses cannot start right now.";
+  return "The analysis service did not answer, so new analyses cannot start right now.";
+}
+
+interface CompanyPanelProps {
+  /** "page" is the workspace start screen; "drawer" is the compact New analysis sheet. */
+  variant?: "page" | "drawer";
+  onSubmitted?: () => void;
+}
+
+/** Company search, the confirmation of what will be analysed, and the one action that starts it. */
+export function CompanyPanel({ variant = "page", onSubmitted }: CompanyPanelProps) {
   const { service, retry } = useService();
   const navigate = useNavigate();
   const ids = useId();
@@ -42,6 +62,7 @@ export function CompanyPanel({ onSubmitted }: { onSubmitted?: () => void }) {
   const [formError, setFormError] = useState<string | null>(null);
 
   const online = service.kind === "online";
+  const offline = service.kind === "offline";
   const health = service.health;
   const profile = selection.state === "ready" ? selection.profile : null;
   const maxQuestion = health?.limits.question_max_chars ?? 400;
@@ -109,9 +130,10 @@ export function CompanyPanel({ onSubmitted }: { onSubmitted?: () => void }) {
       setCursor((c) => (c - 1 + hits.length) % hits.length);
     } else if (e.key === "Escape") {
       setOpen(false);
-    } else if (e.key === "Enter" && open && hits[cursor]) {
+    } else if (e.key === "Enter") {
       e.preventDefault();
-      select(hits[cursor].cik);
+      if (open && !profile && hits[cursor]) select(hits[cursor].cik);
+      else start();
     }
   };
 
@@ -151,175 +173,184 @@ export function CompanyPanel({ onSubmitted }: { onSubmitted?: () => void }) {
         onSubmitted?.();
         navigate(`/app/runs/${created.run_id}`, { state: { reused: created.reused } });
       })
-      .catch((err: unknown) => setSubmitError(toApiError(err)))
+      .catch((err: unknown) => {
+        const error = toApiError(err);
+        setSubmitError(error);
+        if (error.network) retry();
+      })
       .finally(() => setSubmitting(false));
   };
 
   const listId = `${ids}-list`;
   const showList = open && online && query.trim().length > 0 && !profile;
-  const examples = online && health?.live_data.available ? [...LIVE_EXAMPLES, SAMPLE_EXAMPLE] : [SAMPLE_EXAMPLE];
+  const examples = online ? (health?.live_data.available ? [...LIVE_EXAMPLES, SAMPLE_EXAMPLE] : [SAMPLE_EXAMPLE]) : [];
   const selectedOption = profile?.fiscal_years.find((o) => o.fiscal_year === year) ?? null;
+  // With nothing chosen and no service, the search cannot do anything: offer the sample instead of dead controls.
+  const fallback = offline && selection.state === "idle";
 
   return (
-    <form className="company-panel" onSubmit={submit} noValidate aria-labelledby={`${ids}-title`}>
-      <div className="company-panel-head">
-        <h2 id={`${ids}-title`}>New analysis</h2>
-        <p className="muted">One US-listed company, its last three completed fiscal years.</p>
-      </div>
-
-      {service.kind === "offline" && (
-        <Notice
-          tone="amber"
-          title="Live analysis is unavailable"
-          role="status"
-          actions={
-            <>
-              <button type="button" className="btn btn-sm" onClick={retry}>
-                <Icon name="refresh" size={14} /> Retry
-              </button>
-              <Link className="btn btn-sm" to={`/app/sample/${DEFAULT_SAMPLE}`}>
-                Open the sample
+    <form className={`start start-${variant}`} onSubmit={submit} noValidate aria-label="New analysis">
+      {fallback ? (
+        <div className="start-offline" role="status">
+          <span className="start-offline-icon"><Icon name="alert" size={18} /></span>
+          <div>
+            <p className="start-offline-title">Live analysis is unavailable</p>
+            <p className="secondary">
+              {offlineReason(service.error)} The sample report is bundled with this site and works in full.
+            </p>
+            <div className="start-offline-actions">
+              <Link className="btn btn-primary" to={SAMPLE_PATH}>
+                Explore sample report <Icon name="arrow" size={14} />
               </Link>
-            </>
-          }
-        >
-          <p>The analysis service did not answer, so new analyses cannot start. The sample analysis still works.</p>
-        </Notice>
-      )}
-
-      <div className="field">
-        <label htmlFor={`${ids}-q`}>Company</label>
-        <div className="combo">
-          <Icon name="search" className="combo-icon" />
-          <input
-            ref={inputRef}
-            id={`${ids}-q`}
-            className="input"
-            type="text"
-            role="combobox"
-            aria-autocomplete="list"
-            aria-expanded={showList}
-            aria-controls={listId}
-            aria-activedescendant={showList && hits[cursor] ? `${ids}-opt-${cursor}` : undefined}
-            aria-describedby={`${ids}-q-hint`}
-            aria-invalid={formError ? true : undefined}
-            placeholder="Ticker or company name"
-            autoComplete="off"
-            spellCheck={false}
-            maxLength={80}
-            disabled={!online}
-            value={query}
-            onChange={(e) => {
-              setQuery(e.target.value);
-              setOpen(true);
-              setFormError(null);
-              if (selection.state !== "idle") setSelection({ state: "idle" });
-            }}
-            onFocus={() => setOpen(true)}
-            onBlur={() => setTimeout(() => setOpen(false), 120)}
-            onKeyDown={onKeyDown}
-          />
-          {(searching || selection.state === "loading") && <span className="spinner combo-spinner" aria-hidden="true" />}
-          {profile && (
-            <button type="button" className="combo-clear" onClick={clear} aria-label="Clear the selected company">
-              <Icon name="x" size={14} />
-            </button>
+              <button type="button" className="btn" onClick={retry}>
+                <Icon name="refresh" size={14} /> Retry connection
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="field search-field">
+          <label htmlFor={`${ids}-q`}>Search by company name or ticker</label>
+          <div className="combo">
+            <Icon name="search" size={18} className="combo-icon" />
+            <input
+              ref={inputRef}
+              id={`${ids}-q`}
+              className="input"
+              type="text"
+              role="combobox"
+              aria-autocomplete="list"
+              aria-expanded={showList}
+              aria-controls={listId}
+              aria-activedescendant={showList && hits[cursor] ? `${ids}-opt-${cursor}` : undefined}
+              aria-describedby={`${ids}-q-hint`}
+              aria-invalid={formError ? true : undefined}
+              placeholder="For example Microsoft or MSFT"
+              autoComplete="off"
+              spellCheck={false}
+              maxLength={80}
+              value={query}
+              onChange={(e) => {
+                setQuery(e.target.value);
+                setOpen(true);
+                setFormError(null);
+                if (selection.state !== "idle") setSelection({ state: "idle" });
+              }}
+              onFocus={() => setOpen(true)}
+              onBlur={() => setTimeout(() => setOpen(false), 120)}
+              onKeyDown={onKeyDown}
+            />
+            {(searching || selection.state === "loading" || (service.kind === "checking" && query.trim().length > 0)) && (
+              <span className="spinner combo-spinner" aria-hidden="true" />
+            )}
+            {profile && (
+              <button type="button" className="combo-clear" onClick={clear} aria-label="Clear the selected company">
+                <Icon name="x" size={16} />
+              </button>
+            )}
+            {showList && (
+              <ul className="combo-list" id={listId} role="listbox" aria-label="Matching companies">
+                {hits.map((hit, i) => (
+                  <li
+                    key={hit.cik}
+                    id={`${ids}-opt-${i}`}
+                    role="option"
+                    aria-selected={i === cursor}
+                    className={i === cursor ? "on" : ""}
+                    onMouseEnter={() => setCursor(i)}
+                    onMouseDown={(e) => {
+                      e.preventDefault();
+                      select(hit.cik);
+                    }}
+                  >
+                    <span className="combo-name">{displayCompany(hit.name)}</span>
+                    <span className="combo-ticker">{hit.ticker ?? "No ticker"}</span>
+                    <span className="combo-meta muted">
+                      {hit.synthetic ? "Synthetic sample" : (hit.exchange ?? `CIK ${Number(hit.cik)}`)}
+                    </span>
+                  </li>
+                ))}
+                {searching && hits.length === 0 && (
+                  <li className="combo-empty" role="presentation">Searching…</li>
+                )}
+                {hits.length === 0 && !searching && !searchError && debounced === query.trim() && (
+                  <li className="combo-empty" role="presentation">
+                    No company matches “{query.trim()}”. Try the ticker, or fewer letters of the name.
+                  </li>
+                )}
+                {searchError && (
+                  <li className="combo-empty" role="presentation">
+                    {searchError.message}
+                  </li>
+                )}
+                {searchNote && (
+                  <li className="combo-note" role="presentation">
+                    <Icon name="info" size={13} /> {searchNote}
+                  </li>
+                )}
+              </ul>
+            )}
+          </div>
+          <p className="sr-only" role="status">
+            {showList && !searching ? `${hits.length} matching ${hits.length === 1 ? "company" : "companies"}` : ""}
+          </p>
+          <p className="hint" id={`${ids}-q-hint`}>{ELIGIBILITY}</p>
+          {formError && (
+            <p className="field-error" role="alert">
+              <Icon name="alert" size={14} /> {formError}
+            </p>
           )}
-          {showList && (
-            <ul className="combo-list" id={listId} role="listbox" aria-label="Matching companies">
-              {hits.map((hit, i) => (
-                <li
-                  key={hit.cik}
-                  id={`${ids}-opt-${i}`}
-                  role="option"
-                  aria-selected={i === cursor}
-                  className={i === cursor ? "on" : ""}
-                  onMouseEnter={() => setCursor(i)}
-                  onMouseDown={(e) => {
-                    e.preventDefault();
-                    select(hit.cik);
-                  }}
-                >
-                  <span className="combo-ticker mono">{hit.ticker ?? "no ticker"}</span>
-                  <span className="combo-name">{displayCompany(hit.name)}</span>
-                  <span className="combo-meta muted">
-                    {hit.synthetic ? "Synthetic sample" : (hit.exchange ?? `CIK ${Number(hit.cik)}`)}
-                  </span>
-                </li>
+          {!profile && examples.length > 0 && (
+            <div className="examples">
+              <span className="label">Try</span>
+              {examples.map((t) => (
+                <button key={t} type="button" className="chip" disabled={submitting} onClick={() => select(t)}>
+                  {t}
+                  {t === SAMPLE_EXAMPLE && <span className="chip-note">synthetic</span>}
+                </button>
               ))}
-              {hits.length === 0 && !searching && !searchError && debounced === query.trim() && (
-                <li className="combo-empty" role="presentation">
-                  No company matches “{query.trim()}”. Try the ticker, or fewer letters of the name.
-                </li>
-              )}
-              {searchError && (
-                <li className="combo-empty" role="presentation">
-                  {searchError.message}
-                </li>
-              )}
-              {searchNote && (
-                <li className="combo-note" role="presentation">
-                  <Icon name="info" size={13} /> {searchNote}
-                </li>
-              )}
-            </ul>
+            </div>
           )}
         </div>
-        <p className="sr-only" role="status">
-          {showList && !searching ? `${hits.length} matching ${hits.length === 1 ? "company" : "companies"}` : ""}
-        </p>
-        <p className="hint" id={`${ids}-q-hint`}>
-          Search SEC registrants by ticker or name, then pick a result.
-        </p>
-        {formError && (
-          <p className="field-error" role="alert">
-            <Icon name="alert" size={14} /> {formError}
-          </p>
-        )}
-      </div>
-
-      <div className="examples">
-        <span className="label">Try</span>
-        {examples.map((t) => (
-          <button key={t} type="button" className="chip" disabled={!online || submitting} onClick={() => select(t)}>
-            {t}
-            {t === SAMPLE_EXAMPLE && <span className="chip-note">synthetic</span>}
-          </button>
-        ))}
-      </div>
+      )}
 
       {selection.state === "error" && (
-        <ErrorNotice error={selection.error} title="That company could not be loaded" onRetry={() => select(selection.identifier)} />
+        <ErrorNotice
+          error={selection.error}
+          title="That company could not be loaded"
+          onRetry={() => select(selection.identifier)}
+          extra={<Link className="btn btn-sm" to={SAMPLE_PATH}>Explore sample report</Link>}
+        />
       )}
 
       {profile && (
-        <section className="company-card rise" aria-label="Selected company">
-          <div className="company-card-top">
-            <p className="company-name">{displayCompany(profile.name)}</p>
+        <section className="selection rise" aria-label="Selected company">
+          <div className="selection-head">
+            <div>
+              <p className="selection-name">{displayCompany(profile.name)}</p>
+              <p className="selection-meta muted">
+                {[profile.tickers.join(", ") || null, profile.exchange, profile.industry].filter(Boolean).join(" · ")}
+              </p>
+            </div>
             {profile.synthetic && <SyntheticBadge />}
           </div>
-          <dl className="facts">
-            <div>
-              <dt>Ticker</dt>
-              <dd className="mono">{profile.tickers.join(", ") || "none"}</dd>
-            </div>
-            <div>
-              <dt>{profile.synthetic ? "Listing" : "Exchange"}</dt>
-              <dd>{profile.exchange ?? "not listed"}</dd>
-            </div>
-            <div>
-              <dt>CIK</dt>
-              <dd className="mono">{profile.cik}</dd>
-            </div>
-            <div>
-              <dt>Fiscal year end</dt>
-              <dd className="num">{profile.fiscal_year_end ?? "not stated"}</dd>
-            </div>
-            <div className="wide">
-              <dt>Industry</dt>
-              <dd>{profile.industry ? `${profile.industry} (SIC ${profile.sic})` : "not stated"}</dd>
-            </div>
-          </dl>
+
+          {profile.supported && selectedOption ? (
+            <dl className="selection-scope">
+              <div>
+                <dt>Fiscal years</dt>
+                <dd className="num">{selectedOption.window[0]} to {selectedOption.label}</dd>
+              </div>
+              <div>
+                <dt>Latest annual report</dt>
+                <dd>
+                  {selectedOption.label} ended {formatDate(selectedOption.period_end)}; its 10-K was filed{" "}
+                  {formatDate(selectedOption.filed)}.
+                </dd>
+              </div>
+            </dl>
+          ) : null}
+
           {!profile.supported && (
             <Notice tone="amber" title="This company is outside the supported scope" role="status">
               <p>{profile.unsupported_reason}</p>
@@ -330,107 +361,117 @@ export function CompanyPanel({ onSubmitted }: { onSubmitted?: () => void }) {
               </ul>
             </Notice>
           )}
+
+          {profile.supported && (
+            <details className="options">
+              <summary>
+                <Icon name="chevron" size={14} /> Analysis options
+              </summary>
+              <div className="options-body">
+                <div className="field">
+                  <label htmlFor={`${ids}-year`}>Fiscal years</label>
+                  <select
+                    id={`${ids}-year`}
+                    className="select num"
+                    value={year ?? ""}
+                    onChange={(e) => setYear(Number(e.target.value))}
+                  >
+                    {profile.fiscal_years.map((o, i) => (
+                      <option key={o.fiscal_year} value={o.fiscal_year}>
+                        {o.window[0]} to {o.label}
+                        {i === 0 ? " (latest)" : ""}
+                        {o.complete ? "" : ` (${o.window.length} years on file)`}
+                      </option>
+                    ))}
+                  </select>
+                  {profile.notes.map((n) => (
+                    <p key={n} className="hint">
+                      <Icon name="info" size={12} className="inline-icon" /> {n}
+                    </p>
+                  ))}
+                </div>
+
+                <div className="field">
+                  <label htmlFor={`${ids}-question`}>
+                    Question to keep in mind <span className="optional">optional</span>
+                  </label>
+                  <textarea
+                    id={`${ids}-question`}
+                    className="textarea"
+                    rows={2}
+                    maxLength={maxQuestion}
+                    placeholder="For example: why did margins change?"
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                    aria-describedby={`${ids}-question-hint`}
+                  />
+                  <p className="hint" id={`${ids}-question-hint`}>
+                    Recorded in the report and given to the AI investigator as context. Reports on this server are
+                    visible to everyone who uses it. <span className="num">{question.length}/{maxQuestion}</span>
+                  </p>
+                </div>
+
+                {health?.investigator.claude_available && !profile.synthetic ? (
+                  <div className="field">
+                    <label htmlFor={`${ids}-inv`}>How explanations are found</label>
+                    <select
+                      id={`${ids}-inv`}
+                      className="select"
+                      value={investigator}
+                      onChange={(e) => setInvestigator(e.target.value as "auto" | "rule_based")}
+                    >
+                      <option value="auto">Claude ({health.investigator.model})</option>
+                      <option value="rule_based">Rule-based, no AI model</option>
+                    </select>
+                    <p className="hint">Quotes are checked against the filing text by code in both modes.</p>
+                  </div>
+                ) : (
+                  <p className="hint">
+                    Explanations are found by the rule-based investigator, without an AI model
+                    {profile.synthetic ? " (the synthetic sample always runs this way)." : " (none is configured on this server)."}
+                  </p>
+                )}
+              </div>
+            </details>
+          )}
+
+          {submitError && (
+            <ErrorNotice
+              error={submitError}
+              title={
+                submitError.code === "rate_limited" || submitError.code === "busy"
+                  ? "Not started yet"
+                  : submitError.network
+                    ? "The analysis did not start. Your selection is kept."
+                    : "The analysis did not start"
+              }
+              onRetry={submitError.network || submitError.status >= 500 || submitError.status === 429 ? start : undefined}
+              extra={submitError.network ? <Link className="btn btn-sm" to={SAMPLE_PATH}>Explore sample report</Link> : undefined}
+            />
+          )}
+
+          <div className="selection-actions">
+            <button type="submit" className="btn btn-primary btn-lg" disabled={submitting || !profile.supported}>
+              {submitting ? (
+                <>
+                  <span className="spinner" aria-hidden="true" /> Starting…
+                </>
+              ) : (
+                <>
+                  Analyze company <Icon name="arrow" />
+                </>
+              )}
+            </button>
+            <button type="button" className="btn btn-quiet" onClick={clear}>
+              Choose another company
+            </button>
+          </div>
+          <p className="hint">
+            The analysis runs in the background and this page follows it.
+            {health ? ` Up to ${health.limits.runs_per_hour} new analyses per hour from one address.` : ""}
+          </p>
         </section>
       )}
-
-      {profile?.supported && (
-        <>
-          <div className="field">
-            <label htmlFor={`${ids}-year`}>Fiscal years</label>
-            <select
-              id={`${ids}-year`}
-              className="select num"
-              value={year ?? ""}
-              onChange={(e) => setYear(Number(e.target.value))}
-              aria-describedby={`${ids}-year-hint`}
-            >
-              {profile.fiscal_years.map((o, i) => (
-                <option key={o.fiscal_year} value={o.fiscal_year}>
-                  {o.window[0]} to {o.label}
-                  {i === 0 ? " (latest)" : ""}
-                  {o.complete ? "" : ` (${o.window.length} years on file)`}
-                </option>
-              ))}
-            </select>
-            <p className="hint" id={`${ids}-year-hint`}>
-              {selectedOption
-                ? `${selectedOption.label} ended ${formatDate(selectedOption.period_end)}; its 10-K was filed ${formatDate(selectedOption.filed)}.`
-                : "Windows end with a fiscal year that has a filed Form 10-K."}
-            </p>
-            {profile.notes.map((n) => (
-              <p key={n} className="hint">
-                <Icon name="info" size={12} className="inline-icon" /> {n}
-              </p>
-            ))}
-          </div>
-
-          <div className="field">
-            <label htmlFor={`${ids}-question`}>
-              Analysis question <span className="optional">optional</span>
-            </label>
-            <textarea
-              id={`${ids}-question`}
-              className="textarea"
-              rows={2}
-              maxLength={maxQuestion}
-              placeholder="For example: why did margins change?"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              aria-describedby={`${ids}-question-hint`}
-            />
-            <p className="hint" id={`${ids}-question-hint`}>
-              Recorded in the report and given to the Claude investigator as context. Reports on this server are
-              visible to everyone who uses it. <span className="num">{question.length}/{maxQuestion}</span>
-            </p>
-          </div>
-
-          {health?.investigator.claude_available && !profile.synthetic ? (
-            <div className="field">
-              <label htmlFor={`${ids}-inv`}>Investigator</label>
-              <select
-                id={`${ids}-inv`}
-                className="select"
-                value={investigator}
-                onChange={(e) => setInvestigator(e.target.value as "auto" | "rule_based")}
-              >
-                <option value="auto">Claude ({health.investigator.model})</option>
-                <option value="rule_based">Rule-based, no LLM</option>
-              </select>
-              <p className="hint">Quotes are verified against the filing text by code in both modes.</p>
-            </div>
-          ) : (
-            <p className="hint investigator-note">
-              <Badge icon="info">Investigator</Badge> Rule-based, no LLM
-              {profile.synthetic ? " (the synthetic sample always runs offline)." : " (no LLM is configured on this server)."}
-            </p>
-          )}
-        </>
-      )}
-
-      {submitError && (
-        <ErrorNotice
-          error={submitError}
-          title={submitError.code === "rate_limited" || submitError.code === "busy" ? "Not started yet" : "The analysis did not start"}
-          onRetry={submitError.network || submitError.status >= 500 || submitError.status === 429 ? start : undefined}
-        />
-      )}
-
-      <button type="submit" className="btn btn-primary btn-block btn-lg" disabled={!online || submitting || (profile !== null && !profile.supported)}>
-        {submitting ? (
-          <>
-            <span className="spinner" aria-hidden="true" /> Starting…
-          </>
-        ) : (
-          <>
-            Run analysis <Icon name="arrow" />
-          </>
-        )}
-      </button>
-      <p className="hint">
-        {health
-          ? `Runs in the background. Up to ${health.limits.runs_per_hour} new analyses per hour from one address.`
-          : "Runs in the background on the analysis service."}
-      </p>
     </form>
   );
 }

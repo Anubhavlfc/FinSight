@@ -1,24 +1,25 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { api, ApiError } from "../api/client";
 import { sample } from "../api/sample";
-import type { DataTable, DownloadInfo, InterpretationArea, KeyMetric, RunResult, RunStatus } from "../api/types";
+import type { Chart, DataTable, DownloadInfo, InterpretationArea, KeyMetric, RunResult, RunStatus } from "../api/types";
 import { displayCompany, formatBytes, formatDate, formatDateTime, formatDuration, periodRange } from "../lib/format";
 import { toApiError } from "../lib/hooks";
 import { useService } from "../lib/service";
-import { ChartCard } from "./Charts";
-import { Badge, ErrorNotice, ExternalLink, Notice, PhaseBadge, ReviewBadge, SyntheticBadge } from "./common";
+import { ChartCard, Sparkline } from "./Charts";
+import { Badge, ErrorNotice, ExternalLink, Notice, PhaseBadge, ReviewBadge, StatusPair, SyntheticBadge } from "./common";
 import { Diagnostics, type ResultSource } from "./Diagnostics";
 import { ChangeList } from "./Findings";
 import { Icon, type IconName } from "./Icon";
 import { Sources } from "./Sources";
 
 const SECTIONS = [
-  ["overview", "Overview"],
+  ["summary", "Summary"],
   ["metrics", "Key metrics"],
   ["charts", "Charts"],
   ["changes", "Biggest changes"],
-  ["interpretation", "Interpretation"],
-  ["sources", "Sources and limitations"],
+  ["financials", "Financials"],
+  ["sources", "Evidence"],
+  ["about", "Review and details"],
   ["downloads", "Downloads"],
 ] as const;
 
@@ -37,16 +38,77 @@ function Section({ id, title, lead, children, aside }: { id: string; title: stri
   );
 }
 
+/** Section links that stay in reach while scrolling and mark the section being read. */
+function SectionNav() {
+  const [active, setActive] = useState<string>(SECTIONS[0][0]);
+  const list = useRef<HTMLUListElement>(null);
+
+  useEffect(() => {
+    // The section being read is the last one whose top has passed under the sticky bars.
+    let frame = 0;
+    const update = () => {
+      frame = 0;
+      let current: string = SECTIONS[0][0];
+      for (const [id] of SECTIONS) {
+        const node = document.getElementById(id);
+        if (node && node.getBoundingClientRect().top <= 180) current = id;
+      }
+      const atEnd = window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 2;
+      if (atEnd && window.scrollY > 0) {
+        const last = [...SECTIONS].reverse().find(([id]) => document.getElementById(id));
+        if (last) current = last[0];
+      }
+      setActive(current);
+    };
+    const onScroll = () => {
+      if (!frame) frame = requestAnimationFrame(update);
+    };
+    update();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll);
+    return () => {
+      window.removeEventListener("scroll", onScroll);
+      window.removeEventListener("resize", onScroll);
+      if (frame) cancelAnimationFrame(frame);
+    };
+  }, []);
+
+  // Keep the marked link in view inside the strip without moving the page.
+  useEffect(() => {
+    const ul = list.current;
+    const link = ul?.querySelector<HTMLElement>(`a[href="#${active}"]`);
+    if (!ul || !link) return;
+    const left = link.offsetLeft - 16;
+    const right = link.offsetLeft + link.offsetWidth + 16;
+    if (left < ul.scrollLeft) ul.scrollLeft = left;
+    else if (right > ul.scrollLeft + ul.clientWidth) ul.scrollLeft = right - ul.clientWidth;
+  }, [active]);
+
+  return (
+    <nav className="section-nav" aria-label="Report sections">
+      <ul ref={list}>
+        {SECTIONS.map(([id, label]) => (
+          <li key={id}><a href={`#${id}`} aria-current={active === id ? "true" : undefined}>{label}</a></li>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
 // ---------------------------------------------------------------- key metrics
 
 const DIRECTION_ICON: Record<"up" | "down" | "flat" | "none", IconName> = { up: "up", down: "down", flat: "flat", none: "dash" };
 const DIRECTION_WORD = { up: "Up", down: "Down", flat: "Unchanged", none: "" } as const;
 
-export function MetricTile({ metric }: { metric: KeyMetric }) {
+/**
+ * One metric: latest value, its fiscal year, the change from the year before and the three-year
+ * shape. Changes are drawn in a neutral colour: whether "up" is good depends on the metric.
+ */
+export function MetricTile({ metric, compact }: { metric: KeyMetric; compact?: boolean }) {
   const available = metric.status === "available";
   const c = metric.comparison;
   return (
-    <article className="metric" aria-label={`${metric.label}, ${metric.period}`}>
+    <article className={`metric${compact ? " metric-compact" : ""}`} aria-label={`${metric.label}, ${metric.period}`}>
       <header>
         <h3>{metric.label}</h3>
         <span className="metric-tag" title={metric.formula}>
@@ -64,7 +126,6 @@ export function MetricTile({ metric }: { metric: KeyMetric }) {
         )}
       </p>
       <p className="metric-compare">
-        <span className="muted">{metric.period}</span>
         {c && c.display && (
           <span className="delta num">
             <Icon name={DIRECTION_ICON[c.direction]} size={12} />
@@ -72,17 +133,27 @@ export function MetricTile({ metric }: { metric: KeyMetric }) {
             {c.display} {c.label}
           </span>
         )}
-        {c && !c.display && <span className="muted">no comparison {c.label}</span>}
+        {c && !c.display && <span className="muted">No comparison {c.label}</span>}
+        <span className="muted metric-period">{metric.period}</span>
       </p>
-      <dl className="metric-series">
-        {metric.series.map((p) => (
-          <div key={p.period}>
-            <dt>{p.period}</dt>
-            <dd className={`num${p.value === null ? " cell-missing" : ""}`}>{shortDisplay(p.display)}</dd>
-          </div>
-        ))}
-      </dl>
-      {(metric.note || c?.note) && <p className="metric-note muted">{[metric.note, c?.note].filter(Boolean).join(" ")}</p>}
+      {!compact && (
+        <div className="metric-trend">
+          <Sparkline values={metric.series.map((p) => p.value)} />
+          <dl className="metric-series">
+            {metric.series.map((p) => (
+              <div key={p.period}>
+                <dt>{p.period}</dt>
+                <dd className={`num${p.value === null ? " cell-missing" : ""}`}>{shortDisplay(p.display)}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+      {!compact && (metric.note || c?.note) && (
+        <p className="metric-note">
+          <Icon name="info" size={12} /> <span>{[metric.note, c?.note].filter(Boolean).join(" ")}</span>
+        </p>
+      )}
     </article>
   );
 }
@@ -90,6 +161,34 @@ export function MetricTile({ metric }: { metric: KeyMetric }) {
 /** "$1,239 million" is long for a three-column strip; the unit words are abbreviated for display only. */
 function shortDisplay(text: string): string {
   return text.replace(" million", "M").replace(" billion", "B");
+}
+
+export const PRIMARY_METRICS = ["revenue", "operating_margin", "net_income", "free_cash_flow"];
+
+// ---------------------------------------------------------------- charts
+
+const CHART_GROUPS: { title: string; ids: string[] }[] = [
+  { title: "Revenue and profitability", ids: ["chart:revenue_profit", "chart:margins"] },
+  { title: "Cash flow", ids: ["chart:cash_flow"] },
+  { title: "Cash and debt", ids: ["chart:cash_debt"] },
+];
+
+function ChartGroups({ charts }: { charts: Chart[] }) {
+  const known = new Set(CHART_GROUPS.flatMap((g) => g.ids));
+  const groups = [
+    ...CHART_GROUPS.map((g) => ({ title: g.title, charts: g.ids.map((id) => charts.find((c) => c.id === id)).filter((c): c is Chart => Boolean(c)) })),
+    { title: "Other charts", charts: charts.filter((c) => !known.has(c.id)) },
+  ].filter((g) => g.charts.length > 0);
+  return (
+    <div className="chart-groups">
+      {groups.map((g) => (
+        <section key={g.title} className={`chart-group${g.charts.length > 1 ? " is-wide" : ""}`} aria-label={g.title}>
+          <h3 className="group-title">{g.title}</h3>
+          <div className="chart-row">{g.charts.map((c) => <ChartCard key={c.id} chart={c} />)}</div>
+        </section>
+      ))}
+    </div>
+  );
 }
 
 // ---------------------------------------------------------------- tables
@@ -137,7 +236,7 @@ function Interpretation({ areas, changes }: { areas: InterpretationArea[]; chang
       {areas.map((a) => (
         <article key={a.key} className="area panel">
           <header className="panel-head">
-            <h3><Icon name={AREA_ICON[a.key]} size={15} className="inline-icon" /> {a.title}</h3>
+            <h4><Icon name={AREA_ICON[a.key]} size={15} className="inline-icon" /> {a.title}</h4>
             {!a.available && <Badge tone="amber" icon="dash">Not enough data</Badge>}
           </header>
           <div className="panel-body">
@@ -272,20 +371,76 @@ function ReviewPanel({ result, source, onStatus }: { result: RunResult; source: 
   );
 }
 
+// ---------------------------------------------------------------- notes
+
+/** Everything a reader should know before relying on the report, in one place instead of a stack of banners. */
+function ReportNotes({ result, source, generatedAt }: { result: RunResult; source: ResultSource; generatedAt?: string }) {
+  const { status } = result;
+  const rows: { key: string; icon: IconName; title: string; text: ReactNode }[] = [];
+  if (status.synthetic) {
+    rows.push({
+      key: "synthetic",
+      icon: "layers",
+      title: source.kind === "sample" ? "Sample report on synthetic data" : "Synthetic sample data",
+      text: "The company, its figures and its filing text are made up to show the full workflow. They do not describe any real company.",
+    });
+  } else if (source.kind === "sample") {
+    rows.push({
+      key: "cached",
+      icon: "archive",
+      title: "Stored sample report",
+      text: `A saved copy of an analysis of real SEC filings, generated ${formatDateTime(generatedAt ?? result.overview.analysis_completed_at)}. It is not refreshed, so newer filings are not included.`,
+    });
+  }
+  if (status.phase === "partial") {
+    rows.push({
+      key: "partial",
+      icon: "half",
+      title: "Partial results",
+      text: "Some required figures were missing or failed validation, so the metrics that depend on them are marked as not available. Nothing was estimated.",
+    });
+  }
+  if (rows.length === 0 && status.warnings.length === 0) return null;
+  return (
+    <aside className="report-notes" aria-label="Before you rely on this report">
+      {rows.map((r) => (
+        <p key={r.key} className="report-note">
+          <Icon name={r.icon} size={15} />
+          <span><strong>{r.title}</strong> <span className="secondary">{r.text}</span></span>
+        </p>
+      ))}
+      {status.warnings.length > 0 && (
+        <details className="report-note-more">
+          <summary>
+            <Icon name="chevron" size={13} />
+            {status.warnings.length} more thing{status.warnings.length === 1 ? "" : "s"} to know before relying on this report
+          </summary>
+          <ul className="bullets">{status.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
+        </details>
+      )}
+    </aside>
+  );
+}
+
 // ---------------------------------------------------------------- the dashboard
 
 interface ResultViewProps {
   result: RunResult;
   source: ResultSource;
-  /** Extra banner, e.g. the sample notice. */
+  /** Extra notice above the report, e.g. "connected to an analysis that was already running". */
   banner?: ReactNode;
+  /** When a bundled sample was generated. */
+  generatedAt?: string;
   onStatus?: (s: RunStatus) => void;
 }
 
-export function ResultView({ result, source, banner, onStatus }: ResultViewProps) {
+export function ResultView({ result, source, banner, generatedAt, onStatus }: ResultViewProps) {
   const [showDev, setShowDev] = useState(false);
+  const [showAllPoints, setShowAllPoints] = useState(false);
   const { status, overview } = result;
   const name = displayCompany(overview.company.name);
+  const range = periodRange(overview.periods.map((p) => p.label));
+  const latest = overview.periods[overview.periods.length - 1];
   const report = result.downloads.find((d) => d.name === "report.html");
   const reportUrl = report && (source.kind === "run" ? api.fileUrl(source.id, report.name, true) : sample.fileUrl(source.id, report.name));
   const counts = {
@@ -294,144 +449,179 @@ export function ResultView({ result, source, banner, onStatus }: ResultViewProps
     unsupported: result.changes.filter((c) => c.evidence === "unsupported").length,
     skipped: result.changes.filter((c) => c.evidence === "not_investigated").length,
   };
+  const primary = PRIMARY_METRICS.map((n) => result.key_metrics.find((m) => m.name === n)).filter((m): m is KeyMetric => Boolean(m));
+  const secondary = result.key_metrics.filter((m) => !PRIMARY_METRICS.includes(m.name));
+  const points = showAllPoints ? overview.headline : overview.headline.slice(0, 4);
+  const tally = (
+    <p className="evidence-tally">
+      <Badge tone="teal" icon="check">{counts.supported} supported</Badge>
+      <Badge tone="amber" icon="half">{counts.partial} partly</Badge>
+      <Badge tone="coral" icon="ring">{counts.unsupported} unexplained</Badge>
+      {counts.skipped > 0 && <Badge icon="dash">{counts.skipped} not investigated</Badge>}
+    </p>
+  );
 
   return (
     <div className="result">
-      <header className="run-head">
-        <div>
-          <p className="eyebrow">{source.kind === "sample" ? "Sample analysis" : "Analysis report"}</p>
+      <header className="report-head">
+        <div className="report-head-main">
+          <p className="eyebrow">{source.kind === "sample" ? "Sample report" : "Analysis report"}</p>
           <h1>{name}</h1>
           <p className="run-meta">
-            {overview.company.ticker && <span className="mono">{overview.company.ticker}</span>}
-            <span>{periodRange(overview.periods.map((p) => p.label))}</span>
+            {overview.company.ticker && <span className="ticker">{overview.company.ticker}</span>}
+            <span className="num">{range}</span>
             <span>Reported in {overview.currency}</span>
-            <span>Analysed {formatDateTime(overview.analysis_completed_at)}</span>
+            <span>Filings through <span className="num">{formatDate(overview.cutoff_date)}</span></span>
           </p>
         </div>
-        <div className="run-head-side">
-          <PhaseBadge phase={status.phase} />
-          <ReviewBadge review={status.review} />
-          {status.synthetic && <SyntheticBadge />}
+        <div className="report-head-side">
+          <div className="report-status">
+            <StatusPair label="Processing"><PhaseBadge phase={status.phase} /></StatusPair>
+            <StatusPair label="Analyst review"><ReviewBadge review={status.review} /></StatusPair>
+            {status.synthetic && <SyntheticBadge />}
+          </div>
+          <div className="report-actions">
+            {reportUrl && (
+              <a className="btn btn-sm" href={reportUrl} target="_blank" rel="noreferrer noopener">
+                <Icon name="doc" size={14} /> Open HTML report<span className="sr-only"> (opens in a new tab)</span>
+              </a>
+            )}
+            <a className="btn btn-sm" href="#downloads"><Icon name="download" size={14} /> Downloads</a>
+          </div>
         </div>
       </header>
 
       {banner}
+      <ReportNotes result={result} source={source} generatedAt={generatedAt} />
+      <SectionNav />
 
-      {status.synthetic && source.kind === "run" && (
-        <Notice tone="amber" icon="layers" title="Synthetic fixture data">
-          <p>This company, its figures and its filing text are made up to demonstrate the workflow offline. They do not describe any real company.</p>
-        </Notice>
-      )}
-      {status.phase === "partial" && (
-        <Notice tone="amber" title="Partial results">
-          <p>Some required figures were missing or failed validation, so the metrics that depend on them are unavailable. Nothing was estimated. See “Missing and limitations” below.</p>
-        </Notice>
-      )}
-
-      <nav className="section-nav" aria-label="Report sections">
-        <ul>
-          {SECTIONS.map(([id, label]) => (
-            <li key={id}><a href={`#${id}`}>{label}</a></li>
-          ))}
-        </ul>
-        {reportUrl && (
-          <a className="btn btn-sm" href={reportUrl} target="_blank" rel="noreferrer noopener">
-            <Icon name="doc" size={14} /> Open HTML report
-          </a>
-        )}
-      </nav>
-
-      <Section id="overview" title="Company overview">
-        <div className="overview-grid">
-          <div className="panel">
+      <Section id="summary" title="Financial summary" lead={`What happened at ${name} over ${range}, stated from validated figures.`}>
+        <div className="summary-grid">
+          <div className="panel summary-points">
+            <div className="panel-head">
+              <h3>What changed</h3>
+              <Badge icon="calc">Calculated, not interpreted</Badge>
+            </div>
             <div className="panel-body">
-              <dl className="facts wide-facts">
-                <div><dt>Company</dt><dd>{name}</dd></div>
-                <div><dt>Ticker</dt><dd className="mono">{overview.company.tickers.join(", ") || "none"}</dd></div>
-                <div><dt>CIK</dt><dd className="mono">{overview.company.cik}</dd></div>
-                <div><dt>Industry</dt><dd>{overview.industry ? `${overview.industry} (SIC ${overview.sic})` : "not stated"}</dd></div>
-                <div><dt>Reporting currency</dt><dd>{overview.currency}</dd></div>
-                <div><dt>Fiscal year end</dt><dd className="num">{overview.fiscal_year_end ?? "not stated"}</dd></div>
-                <div><dt>Filings available by</dt><dd className="num">{formatDate(overview.cutoff_date)}</dd></div>
-                <div><dt>Analysis finished</dt><dd className="num">{formatDateTime(overview.analysis_completed_at)} <span className="muted">({formatDuration(status.elapsed_seconds)})</span></dd></div>
-                <div><dt>Data source</dt><dd>{overview.data_origin_label}</dd></div>
-                <div><dt>Investigator</dt><dd>{status.investigator?.name ?? "Not used"}</dd></div>
-              </dl>
+              {overview.headline.length > 0 ? (
+                <>
+                  <ul className="bullets">{points.map((h) => <li key={h} className="num">{h}</li>)}</ul>
+                  {overview.headline.length > 4 && (
+                    <button type="button" className="link-btn" aria-expanded={showAllPoints} onClick={() => setShowAllPoints((v) => !v)}>
+                      {showAllPoints ? "Show fewer points" : `Show ${overview.headline.length - 4} more points`}
+                    </button>
+                  )}
+                </>
+              ) : (
+                <p className="muted">No summary statements were produced for this analysis.</p>
+              )}
               {overview.question && <p className="question"><span className="muted">Analysis question:</span> {overview.question}</p>}
             </div>
-            <div className="table-scroll" tabIndex={0} role="group" aria-label="Scrollable table">
-              <table className="data">
-                <caption className="pad">Fiscal years analysed and the 10-K that defines each one</caption>
-                <thead><tr><th scope="col">Fiscal year</th><th scope="col">Period</th><th scope="col">10-K filed</th><th scope="col">Accession</th></tr></thead>
-                <tbody>
-                  {overview.periods.map((p) => (
-                    <tr key={p.label}>
-                      <th scope="row">{p.label}</th>
-                      <td className="num left">{p.start_date ? `${formatDate(p.start_date)} to ` : "ended "}{formatDate(p.end_date)}</td>
-                      <td className="num left">{formatDate(p.filed)}</td>
-                      <td className="mono nowrap">{p.filing_url ? <ExternalLink href={p.filing_url}>{p.accession}</ExternalLink> : p.accession}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          </div>
+          <div className="panel summary-evidence">
+            <div className="panel-head"><h3>Explanations at a glance</h3></div>
+            <div className="panel-body">
+              {result.changes.length > 0 ? (
+                <>
+                  <p className="secondary">
+                    {result.changes.length} change{result.changes.length === 1 ? " was" : "s were"} large enough to look into. This is how
+                    far the company's filings explain them.
+                  </p>
+                  {tally}
+                  <a href="#changes">See the biggest changes <Icon name="arrow" size={13} className="inline-icon" /></a>
+                </>
+              ) : (
+                <p className="secondary">No year-over-year change was large enough to look into.</p>
+              )}
             </div>
           </div>
-          <div className="overview-side">
-            <ReviewPanel result={result} source={source} onStatus={onStatus} />
-            {status.warnings.length > 0 && (
-              <Notice tone="amber" title={`${status.warnings.length} thing${status.warnings.length === 1 ? "" : "s"} to know before relying on this report`}>
-                <ul>{status.warnings.map((w) => <li key={w}>{w}</li>)}</ul>
-              </Notice>
-            )}
-          </div>
         </div>
-        {overview.headline.length > 0 && (
-          <section className="panel summary-panel">
-            <div className="panel-head"><h3>Summary</h3><Badge icon="calc">Calculated</Badge></div>
-            <div className="panel-body"><ul className="bullets two-col">{overview.headline.map((h) => <li key={h} className="num">{h}</li>)}</ul></div>
-          </section>
+      </Section>
+
+      <Section id="metrics" title="Key metrics" lead={`Latest fiscal year (${latest?.label}), the change from the year before, and all three years.`}>
+        <div className="metrics metrics-primary">{primary.map((m) => <MetricTile key={m.name} metric={m} />)}</div>
+        {secondary.length > 0 && (
+          <>
+            <h3 className="group-title">Cash and debt</h3>
+            <div className="metrics metrics-secondary">{secondary.map((m) => <MetricTile key={m.name} metric={m} />)}</div>
+          </>
         )}
       </Section>
 
-      <Section id="metrics" title="Key metrics" lead={`Latest fiscal year (${overview.periods[overview.periods.length - 1]?.label}) with the change from the year before and all three years.`}>
-        <div className="metrics">{result.key_metrics.map((m) => <MetricTile key={m.name} metric={m} />)}</div>
-      </Section>
-
-      <Section id="charts" title="Three-year charts" lead="Each chart plots validated metrics on one axis. Switch any chart to its table for exact values.">
-        <div className="charts">{result.charts.map((c) => <ChartCard key={c.id} chart={c} />)}</div>
-        <div className="tables">
-          <div className="panel"><div className="panel-head"><h3>Three-year financial table</h3></div><div className="panel-body flush"><FinancialTable table={result.financials} /></div></div>
-          <div className="panel"><div className="panel-head"><h3>Year-over-year changes</h3></div><div className="panel-body flush"><FinancialTable table={result.year_over_year} /></div></div>
-        </div>
+      <Section id="charts" title="Three-year charts" lead="Every chart plots validated figures. Switch any chart to its table for exact values.">
+        <ChartGroups charts={result.charts} />
       </Section>
 
       <Section id="changes" title="Biggest changes"
-        lead="Ranked by how far each change exceeds the investigation settings. The ranking is a work queue, not a judgement of importance."
-        aside={
-          <p className="evidence-tally">
-            <Badge tone="teal" icon="check">{counts.supported} supported</Badge>
-            <Badge tone="amber" icon="half">{counts.partial} partly</Badge>
-            <Badge tone="coral" icon="ring">{counts.unsupported} unexplained</Badge>
-            {counts.skipped > 0 && <Badge icon="dash">{counts.skipped} not investigated</Badge>}
-          </p>
-        }>
+        lead="The year-over-year changes large enough to look into, each with what the company's filings say about it. The order is a work queue, not a ranking of importance."
+        aside={result.changes.length > 0 ? tally : undefined}>
         {result.changes.length === 0 ? (
-          <Notice title="No change exceeded the investigation settings"><p>Year-over-year movements were all inside the configured thresholds, so nothing was sent to the investigator.</p></Notice>
+          <Notice title="No change was large enough to look into"><p>Year-over-year movements were all inside the configured thresholds, so nothing was sent to the investigator.</p></Notice>
         ) : (
           <ChangeList changes={result.changes} passages={result.passages} />
         )}
       </Section>
 
-      <Section id="interpretation" title="Financial interpretation"
-        lead="Individual measures by area, stated as calculated observations. FinSight does not produce an overall financial-health score, because the engine has no documented method for one.">
+      <Section id="financials" title="Detailed financials" lead="The full three-year tables and the individual measures behind the summary.">
+        <div className="tables">
+          <div className="panel"><div className="panel-head"><h3>Three-year financial table</h3></div><div className="panel-body flush"><FinancialTable table={result.financials} /></div></div>
+          <div className="panel"><div className="panel-head"><h3>Year-over-year changes</h3></div><div className="panel-body flush"><FinancialTable table={result.year_over_year} /></div></div>
+        </div>
+        <h3 className="group-title">Measures by area</h3>
+        <p className="muted section-lead">
+          Individual measures, stated as calculated observations. FinSight does not produce an overall financial-health
+          score or a buy or sell view.
+        </p>
         <Interpretation areas={result.interpretation} changes={result.changes} />
       </Section>
 
-      <Section id="sources" title="Sources and limitations" lead="Inspect the filing text behind each explanation, how every number was calculated, and what is missing.">
+      <Section id="sources" title="Evidence and sources" lead="The filing text behind each explanation, how every number was calculated, and what is missing.">
         <Sources result={result} />
       </Section>
 
-      <Section id="downloads" title="Downloads" lead="Files written by the analysis engine for this run. Full-precision values are in the CSV and JSON files.">
+      <Section id="about" title="Review and report details" lead="Who has checked this report, and exactly which company and filings it covers.">
+        <div className="about-grid">
+          <ReviewPanel result={result} source={source} onStatus={onStatus} />
+          <section className="panel" aria-labelledby="company-h">
+            <div className="panel-head"><h3 id="company-h">Company and analysis</h3></div>
+            <div className="panel-body">
+              <dl className="facts wide-facts">
+                <div><dt>Company</dt><dd>{name}</dd></div>
+                <div><dt>Ticker</dt><dd>{overview.company.tickers.join(", ") || "none"}</dd></div>
+                <div><dt>Industry</dt><dd>{overview.industry ? `${overview.industry} (SIC ${overview.sic})` : "not stated"}</dd></div>
+                <div><dt>Fiscal year end</dt><dd className="num">{overview.fiscal_year_end ?? "not stated"}</dd></div>
+                <div><dt>Reporting currency</dt><dd>{overview.currency}</dd></div>
+                <div><dt>Data source</dt><dd>{overview.data_origin_label}</dd></div>
+                <div><dt>Filings available by</dt><dd className="num">{formatDate(overview.cutoff_date)}</dd></div>
+                <div><dt>Analysis finished</dt><dd className="num">{formatDateTime(overview.analysis_completed_at)} <span className="muted">({formatDuration(status.elapsed_seconds)})</span></dd></div>
+                <div><dt>Explanations found by</dt><dd>{status.investigator?.name ?? "Not used"}</dd></div>
+                <div><dt>SEC company number (CIK)</dt><dd className="mono">{overview.company.cik}</dd></div>
+              </dl>
+            </div>
+          </section>
+        </div>
+        <div className="panel">
+          <div className="panel-head"><h3>Fiscal years and the 10-K behind each one</h3></div>
+          <div className="table-scroll" tabIndex={0} role="group" aria-label="Scrollable table">
+            <table className="data">
+              <caption className="sr-only">Fiscal years analysed and the 10-K that defines each one</caption>
+              <thead><tr><th scope="col">Fiscal year</th><th scope="col">Period</th><th scope="col">10-K filed</th><th scope="col">Accession</th></tr></thead>
+              <tbody>
+                {overview.periods.map((p) => (
+                  <tr key={p.label}>
+                    <th scope="row">{p.label}</th>
+                    <td className="num left">{p.start_date ? `${formatDate(p.start_date)} to ` : "ended "}{formatDate(p.end_date)}</td>
+                    <td className="num left">{formatDate(p.filed)}</td>
+                    <td className="mono nowrap">{p.filing_url ? <ExternalLink href={p.filing_url}>{p.accession}</ExternalLink> : p.accession}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </Section>
+
+      <Section id="downloads" title="Downloads" lead="Files written by the analysis engine for this report. Full-precision values are in the CSV and JSON files.">
         <Downloads downloads={result.downloads} source={source} />
       </Section>
 

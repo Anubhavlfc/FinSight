@@ -1,32 +1,32 @@
-import { Link, useOutletContext } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { api } from "../api/client";
 import { DEFAULT_SAMPLE } from "../api/sample";
 import type { RunList, RunStatus } from "../api/types";
 import { CompanyPanel } from "../components/CompanyPanel";
-import { Notice, PhaseBadge, ReviewBadge } from "../components/common";
+import { Notice, PhaseBadge, ReviewBadge, Skeleton, SyntheticBadge } from "../components/common";
 import { Icon } from "../components/Icon";
 import { displayCompany, formatDateTime, periodRange } from "../lib/format";
 import { lastRun, useDocumentTitle, useLoad } from "../lib/hooks";
 import { useService } from "../lib/service";
-import type { WorkspaceContext } from "./WorkspaceLayout";
 
+/** The pipeline's real stages. Kept out of the way until someone asks how it works. */
 const STAGES: [string, string][] = [
-  ["Planning", "Resolves the company at the SEC, checks it is in scope and picks the fiscal years from its 10-K filing history."],
-  ["Collecting", "Downloads the company's XBRL facts from SEC EDGAR, with pacing, bounded retries and a local cache."],
-  ["Validating", "Keeps annual figures only, applies restatements, chooses tags, and runs accounting checks. Problems are disclosed, never patched."],
-  ["Calculating", "Computes margins, cash flow, debt and year-over-year changes in Python, and ranks the changes worth investigating."],
-  ["Investigating", "Searches the 10-K text for the company's own explanation of each flagged change. Quotes are verified verbatim by code."],
+  ["Planning", "Finds the company at the SEC, checks it is in scope and picks the fiscal years from its 10-K filing history."],
+  ["Collecting", "Downloads the company's reported figures from SEC EDGAR."],
+  ["Validating", "Keeps annual figures only, applies restatements and runs accounting checks. Problems are disclosed, never patched."],
+  ["Calculating", "Computes margins, cash flow, debt and year-over-year changes, and ranks the changes worth investigating."],
+  ["Investigating", "Searches the 10-K text for the company's own explanation of each flagged change. Quotes are checked word for word."],
   ["Writing", "Drafts the report from validated metrics and findings only. Every claim cites a metric or a passage."],
   ["Reviewing", "Re-checks every number, citation and quote, and sends defects back for at most two revision cycles."],
   ["Ready for review", "Stops and waits. A person approves the report; the system never approves its own work."],
 ];
 
 export function WorkspaceHome() {
-  useDocumentTitle("Workspace");
-  const { desktop } = useOutletContext<WorkspaceContext>();
+  useDocumentTitle("Analyze a company");
   const { service } = useService();
+  const settled = service.kind !== "checking";
   const online = service.kind === "online";
-  const recent = useLoad<RunList | null>((signal) => (online ? api.runs(signal) : Promise.resolve(null)), `recent:${online}`);
+  const recent = useLoad<RunList | null>((signal) => (settled ? api.runs(signal) : Promise.resolve(null)), `recent:${service.kind}`);
   const lastId = lastRun.get();
   const last = useLoad<RunStatus | null>(
     (signal) => (online && lastId ? api.run(lastId, signal).catch(() => null) : Promise.resolve(null)),
@@ -34,18 +34,15 @@ export function WorkspaceHome() {
   );
   const active = last.state === "ready" && last.data && (last.data.phase === "queued" || last.data.phase === "running") ? last.data : null;
   const runs = recent.state === "ready" && recent.data ? recent.data.runs.slice(0, 5) : [];
+  const recentLoading = !settled || recent.state === "loading";
 
   return (
     <div className="home">
-      <header className="page-head">
-        <div>
-          <p className="eyebrow">Workspace</p>
-          <h1>Analyze a company's last three fiscal years</h1>
-          <p className="muted">
-            {desktop ? "Choose a company in the panel on the left." : "Choose a company below."} The analysis runs in the
-            background and this page shows each stage as the backend finishes it.
-          </p>
-        </div>
+      <header className="home-head">
+        <h1>Analyze a company</h1>
+        <p className="secondary">
+          Pick a company to see three years of its financials, the biggest changes, and what its filings say about them.
+        </p>
       </header>
 
       {active && (
@@ -55,68 +52,92 @@ export function WorkspaceHome() {
         </Notice>
       )}
 
-      {!desktop && <div className="panel inline-panel"><CompanyPanel /></div>}
+      <div className="start-card">
+        <CompanyPanel />
+      </div>
 
-      <div className="home-grid">
-        <section className="panel" aria-labelledby="stages-h">
-          <div className="panel-head"><h2 id="stages-h">What a run does</h2><span className="muted">Eight stages, in order</span></div>
-          <ol className="explain-stages">
+      <div className="home-below">
+        <section className="panel sample-card" aria-labelledby="sample-h">
+          <div className="panel-body">
+            <div className="sample-card-top">
+              <h2 id="sample-h">Sample report</h2>
+              <SyntheticBadge />
+            </div>
+            <p className="secondary">
+              A finished report on a made-up company: a loss that turns into a profit, free cash flow that goes
+              negative, and one change the filings only partly explain.
+            </p>
+            <Link className="btn" to={`/app/sample/${DEFAULT_SAMPLE}`}>
+              Explore sample report <Icon name="arrow" size={13} />
+            </Link>
+          </div>
+        </section>
+
+        <section className="panel" aria-labelledby="recent-h">
+          <div className="panel-head">
+            <h2 id="recent-h">Recent reports</h2>
+            <Link to="/app/reports">All reports</Link>
+          </div>
+          {recentLoading ? (
+            <div className="panel-body recent-loading" role="status">
+              <span className="sr-only">Loading recent reports</span>
+              <Skeleton height={18} />
+              <Skeleton height={18} width="70%" />
+            </div>
+          ) : recent.state === "error" ? (
+            <div className="panel-body state-row">
+              <Icon name="alert" size={16} className="state-icon tone-amber" />
+              <div>
+                <p className="state-title">Recent reports could not be loaded</p>
+                <p className="muted">
+                  {recent.error.network
+                    ? "Stored reports live on the analysis service, which is not reachable. The sample report does not need it."
+                    : recent.error.message}
+                </p>
+                <button type="button" className="link-btn" onClick={recent.reload}>Try again</button>
+              </div>
+            </div>
+          ) : runs.length === 0 ? (
+            <div className="panel-body state-row">
+              <Icon name="archive" size={16} className="state-icon" />
+              <div>
+                <p className="state-title">No reports yet</p>
+                <p className="muted">Reports appear here as soon as an analysis starts.</p>
+              </div>
+            </div>
+          ) : (
+            <ul className="recent">
+              {runs.map((r) => (
+                <li key={r.id}>
+                  <Link to={`/app/runs/${r.id}`}>
+                    <span className="recent-name">{r.company ? displayCompany(r.company.name) : r.identifier}</span>
+                    <span className="muted num">{periodRange(r.periods)} · {formatDateTime(r.created_at)}</span>
+                  </Link>
+                  <span className="recent-badges"><PhaseBadge phase={r.phase} />{r.has_results && <ReviewBadge review={r.review} />}</span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <details className="how">
+        <summary><Icon name="chevron" size={14} /> How an analysis runs</summary>
+        <div className="how-body">
+          <p className="muted">
+            Every analysis goes through the same eight stages, in order. The progress page reports each one as the
+            service finishes it.
+          </p>
+          <ol className="how-stages">
             {STAGES.map(([title, text], i) => (
               <li key={title}>
-                <span className="num step-n">{i + 1}</span>
-                <div><p className="step-title">{title}</p><p className="muted">{text}</p></div>
+                <span className="num how-n">{i + 1}</span>
+                <div><p className="how-title">{title}</p><p className="muted">{text}</p></div>
               </li>
             ))}
           </ol>
-        </section>
-
-        <div className="home-side">
-          <section className="panel" aria-labelledby="recent-h">
-            <div className="panel-head"><h2 id="recent-h">Recent reports</h2><Link to="/app/reports">All reports</Link></div>
-            {runs.length > 0 ? (
-              <ul className="recent">
-                {runs.map((r) => (
-                  <li key={r.id}>
-                    <Link to={`/app/runs/${r.id}`}>
-                      <span className="recent-name">{r.company ? displayCompany(r.company.name) : r.identifier}</span>
-                      <span className="muted num">{periodRange(r.periods)} · {formatDateTime(r.created_at)}</span>
-                    </Link>
-                    <span className="recent-badges"><PhaseBadge phase={r.phase} />{r.has_results && <ReviewBadge review={r.review} />}</span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <div className="panel-body">
-                <p className="muted">
-                  {recent.state === "loading" || service.kind === "checking"
-                    ? "Loading…"
-                    : online
-                      ? "No analyses yet. Reports appear here once a run starts."
-                      : "Stored reports are unavailable while the analysis service is offline."}
-                </p>
-              </div>
-            )}
-          </section>
-
-          <section className="panel sample-card" aria-labelledby="sample-h">
-            <div className="panel-head"><h2 id="sample-h">Sample analysis</h2></div>
-            <div className="panel-body">
-              <p className="secondary">
-                A finished report on a synthetic company: restated figures, a loss-to-profit swing, negative free cash
-                flow, and one change the filings leave unexplained.
-              </p>
-              <Link className="btn" to={`/app/sample/${DEFAULT_SAMPLE}`}>Open the sample <Icon name="arrow" size={13} /></Link>
-            </div>
-          </section>
-
-          <section className="panel" aria-labelledby="scope-h">
-            <div className="panel-head"><h2 id="scope-h">Supported companies</h2></div>
-            <div className="panel-body">
-              <p className="secondary">{service.health?.supported_companies ?? "US domestic, nonfinancial operating companies that file Form 10-K in USD."}</p>
-            </div>
-          </section>
         </div>
-      </div>
+      </details>
     </div>
   );
 }

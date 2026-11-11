@@ -43,7 +43,7 @@ export async function noHorizontalOverflow(page: Page) {
 
 /** Pick the synthetic sample company through the search box, with the keyboard. */
 export async function pickDemo(page: Page) {
-  const box = page.getByRole("combobox", { name: "Company" });
+  const box = page.getByRole("combobox", { name: "Search by company name or ticker" });
   await box.fill("demo");
   const option = page.getByRole("option", { name: /DEMO/ });
   await expect(option).toBeVisible();
@@ -57,7 +57,7 @@ export async function pickDemo(page: Page) {
 export async function startDemoRun(page: Page): Promise<string> {
   await page.goto("/app");
   await pickDemo(page);
-  await page.getByRole("button", { name: "Run analysis" }).click();
+  await page.getByRole("button", { name: "Analyze company" }).click();
   await page.waitForURL(/\/app\/runs\/run-/);
   return page.url().split("/").pop()!;
 }

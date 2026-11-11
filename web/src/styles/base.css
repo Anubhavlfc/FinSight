@@ -1,52 +1,86 @@
-/* FinSight AI: "financial research observatory".
-   Deep navy surfaces, warm white ink, teal for actions and selection, amber for
-   warnings and investigation. Colour never carries meaning alone: every status
-   has an icon and a text label next to it. */
+/* FinSight AI design tokens and primitives.
+   A calm research surface: deep navy page, slightly lighter panels, clearly raised
+   surfaces for anything that floats. Teal marks actions and selection. Green, red and
+   amber are reserved for meaning, and every status also carries an icon and a label. */
 
 :root {
   color-scheme: dark;
 
-  /* surfaces, darkest first */
-  --bg: #0a111e;
-  --surface-1: #101a2b;
-  --surface-2: #162236;
-  --surface-3: #1d2b43;
-  --line: #24344d;
-  --line-strong: #375072;
+  /* surfaces: page, panel, inset, raised */
+  --bg: #08101c;
+  --surface-1: #0f1929;
+  --surface-2: #152236;
+  --surface-3: #1c2d46;
+  --line: #213149;
+  --line-strong: #33496a;
   /* Boundaries of form fields and buttons: at least 3:1 against every surface. */
   --control-line: #58759c;
 
   /* ink */
-  --ink: #f3efe6;
-  --ink-2: #c5ccd8;
-  --ink-3: #93a0b5;
+  --ink: #f2f4f8;
+  --ink-2: #c3cbd9;
+  --ink-3: #94a2b8;
 
-  /* roles */
+  /* brand and action */
   --teal: #35c9c0;
-  --teal-strong: #5fdcd3;
+  --teal-strong: #62ddd4;
   --teal-wash: rgba(53, 201, 192, 0.12);
-  --teal-ink: #062925;
-  --amber: #e2a93b;
-  --amber-wash: rgba(226, 169, 59, 0.12);
-  --coral: #f08f7f;
-  --coral-wash: rgba(240, 143, 127, 0.12);
-  --neutral-wash: rgba(147, 160, 181, 0.12);
+  --teal-ink: #05211e;
+
+  /* meaning: favourable, caution, unfavourable. Never used for a bare increase or decrease. */
+  --green: #58c896;
+  --green-wash: rgba(88, 200, 150, 0.12);
+  --amber: #e5ac42;
+  --amber-wash: rgba(229, 172, 66, 0.11);
+  --coral: #f2917f;
+  --coral-wash: rgba(242, 145, 127, 0.11);
+  --neutral-wash: rgba(148, 162, 184, 0.12);
 
   /* chart series: fixed order, validated for colour-vision separation on --surface-1 */
   --series-1: #3987e5;
   --series-2: #d95926;
   --series-3: #199e70;
-  --grid: #1f2e45;
+  --grid: #1d2c43;
 
+  /* type */
   --font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-serif: "Source Serif 4 Variable", "Source Serif 4", Georgia, serif;
   --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+  --text-xs: 12px;
+  --text-sm: 13px;
+  --text-md: 15px;
+  --text-lg: 17px;
+  --text-xl: 21px;
+  --text-2xl: 28px;
 
-  --radius: 6px;
-  --radius-lg: 10px;
-  --gutter: clamp(16px, 3vw, 32px);
-  --topbar-h: 56px;
-  --shadow: 0 12px 32px rgba(2, 6, 14, 0.5);
+  /* spacing: 8px scale with a 4px half step */
+  --s1: 4px;
+  --s2: 8px;
+  --s3: 12px;
+  --s4: 16px;
+  --s5: 24px;
+  --s6: 32px;
+  --s7: 48px;
+  --s8: 64px;
+  --s9: 96px;
+
+  /* shape */
+  --radius-sm: 8px;
+  --radius: 12px;
+  --radius-lg: 16px;
+  --gutter: clamp(16px, 4vw, 40px);
+  --content: 1200px;
+  --topbar-h: 60px;
+
+  /* elevation */
+  --shadow-1: 0 1px 2px rgba(2, 6, 14, 0.4);
+  --shadow-2: 0 10px 28px rgba(2, 6, 14, 0.45);
+  --shadow-3: 0 24px 64px rgba(2, 6, 14, 0.6);
+  --shadow: var(--shadow-2);
+
+  /* motion */
+  --dur: 180ms;
+  --ease: cubic-bezier(0.2, 0.7, 0.3, 1);
 }
 
 *,
@@ -58,7 +92,7 @@
 html {
   -webkit-text-size-adjust: 100%;
   scroll-behavior: smooth;
-  scroll-padding-top: calc(var(--topbar-h) + 56px);
+  scroll-padding-top: calc(var(--topbar-h) + 64px);
 }
 
 body {
@@ -139,7 +173,6 @@ svg {
 :focus-visible {
   outline: 2px solid var(--teal-strong);
   outline-offset: 2px;
-  border-radius: 3px;
 }
 
 ::selection {
@@ -182,7 +215,7 @@ th.num {
   font-weight: 600;
   border-radius: var(--radius);
   text-decoration: none;
-  transition: top 0.15s;
+  transition: top var(--dur) var(--ease);
 }
 
 .skip-link:focus {
@@ -191,11 +224,11 @@ th.num {
 }
 
 .eyebrow {
-  font-family: var(--font-mono);
-  font-size: 11.5px;
-  letter-spacing: 0.09em;
+  font-size: var(--text-xs);
+  font-weight: 600;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: var(--ink-3);
+  color: var(--teal-strong);
 }
 
 .muted {
@@ -208,7 +241,7 @@ th.num {
 
 .wrap {
   width: 100%;
-  max-width: 1200px;
+  max-width: calc(var(--content) + var(--gutter) * 2);
   margin: 0 auto;
   padding-inline: var(--gutter);
 }
@@ -220,8 +253,8 @@ th.num {
   align-items: center;
   justify-content: center;
   gap: 8px;
-  min-height: 38px;
-  padding: 7px 14px;
+  min-height: 40px;
+  padding: 8px 16px;
   border: 1px solid var(--control-line);
   border-radius: var(--radius);
   background: transparent;
@@ -231,7 +264,7 @@ th.num {
   line-height: 1.2;
   text-decoration: none;
   white-space: nowrap;
-  transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+  transition: background-color var(--dur) var(--ease), border-color var(--dur) var(--ease), color var(--dur) var(--ease);
 }
 
 .btn:hover:not(:disabled) {
@@ -258,14 +291,15 @@ th.num {
 }
 
 .btn-lg {
-  min-height: 46px;
-  padding: 10px 20px;
-  font-size: 15px;
+  min-height: 48px;
+  padding: 12px 24px;
+  font-size: 15.5px;
 }
 
 .btn-sm {
-  min-height: 30px;
-  padding: 4px 10px;
+  min-height: 32px;
+  padding: 4px 12px;
+  border-radius: var(--radius-sm);
   font-size: 13px;
 }
 
@@ -331,11 +365,17 @@ th.num {
   color: var(--coral);
 }
 
+.badge.tone-green {
+  border-color: rgba(88, 200, 150, 0.5);
+  background: var(--green-wash);
+  color: var(--green);
+}
+
 .badge.square {
-  border-radius: 4px;
-  font-family: var(--font-mono);
+  border-radius: 6px;
   font-size: 11px;
-  letter-spacing: 0.04em;
+  font-weight: 600;
+  letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 
@@ -353,26 +393,26 @@ th.num {
   align-items: baseline;
   justify-content: space-between;
   gap: 8px 16px;
-  padding: 14px 18px;
+  padding: var(--s4) var(--s5);
   border-bottom: 1px solid var(--line);
 }
 
 .panel-head h2,
-.panel-head h3 {
+.panel-head h3,
+.panel-head h4 {
   font-size: 15px;
 }
 
 .panel-body {
-  padding: 16px 18px;
+  padding: var(--s4) var(--s5);
 }
 
 .notice {
   display: grid;
   grid-template-columns: auto 1fr;
   gap: 4px 12px;
-  padding: 12px 14px;
+  padding: var(--s3) var(--s4);
   border: 1px solid var(--line-strong);
-  border-left-width: 3px;
   border-radius: var(--radius);
   background: var(--surface-2);
   font-size: 14px;
@@ -458,7 +498,7 @@ table.data caption {
 
 table.data th,
 table.data td {
-  padding: 7px 12px;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--line);
   text-align: left;
   vertical-align: top;
@@ -466,10 +506,9 @@ table.data td {
 
 table.data thead th {
   color: var(--ink-3);
-  font-family: var(--font-mono);
   font-size: 11.5px;
-  font-weight: 500;
-  letter-spacing: 0.05em;
+  font-weight: 600;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
   white-space: nowrap;
 }
@@ -535,13 +574,13 @@ table.data tbody tr:hover {
 .select,
 .textarea {
   width: 100%;
-  min-height: 40px;
-  padding: 8px 12px;
+  min-height: 44px;
+  padding: 10px 14px;
   border: 1px solid var(--control-line);
   border-radius: var(--radius);
   background: var(--bg);
   color: var(--ink);
-  transition: border-color 0.15s;
+  transition: border-color var(--dur) var(--ease);
 }
 
 .input::placeholder,
@@ -616,7 +655,7 @@ table.data tbody tr:hover {
 }
 
 .rise {
-  animation: rise 0.35s ease-out both;
+  animation: rise 0.22s var(--ease) both;
 }
 
 .skeleton {
@@ -661,4 +700,21 @@ table.data tbody tr:hover {
 
 .nowrap {
   white-space: nowrap;
+}
+
+/* Comfortable targets wherever the pointer is a finger. */
+@media (pointer: coarse), (max-width: 900px) {
+  .btn,
+  .btn-sm,
+  .chip,
+  .seg button,
+  .tabs button,
+  .link-btn {
+    min-height: 44px;
+  }
+
+  .link-btn {
+    display: inline-flex;
+    align-items: center;
+  }
 }

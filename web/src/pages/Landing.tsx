@@ -1,216 +1,287 @@
+import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { DEFAULT_SAMPLE, sample } from "../api/sample";
-import type { RunResult } from "../api/types";
+import type { KeyMetric, RunResult } from "../api/types";
 import { ChartCard } from "../components/Charts";
-import { Badge, EvidenceBadge, ExternalLink, ReviewBadge, SyntheticBadge } from "../components/common";
+import { ELIGIBILITY } from "../components/CompanyPanel";
+import { EvidenceBadge, ExternalLink, Skeleton, SyntheticBadge } from "../components/common";
+import { changeTitle } from "../components/Findings";
 import { Icon, type IconName } from "../components/Icon";
 import { Logo } from "../components/Logo";
 import { MetricTile } from "../components/ResultView";
 import { Footer } from "../components/Shell";
 import { ARCHITECTURE_URL, REPO_URL } from "../config";
-import { displayCompany, formatDate, periodRange } from "../lib/format";
-import { useDocumentTitle, useLoad } from "../lib/hooks";
+import { displayCompany, periodRange } from "../lib/format";
+import { useDocumentTitle, useLoad, type Loadable } from "../lib/hooks";
 
 const SAMPLE_PATH = `/app/sample/${DEFAULT_SAMPLE}`;
 
-const WORKFLOW: { icon: IconName; title: string; text: string }[] = [
-  { icon: "download", title: "Collect", text: "Finds the company at the SEC, picks its last three completed fiscal years from the 10-K filing history, and downloads the reported figures and filings." },
-  { icon: "shield", title: "Validate", text: "Checks that each figure is annual, in US dollars and for the right period. Restated values replace older ones, and the accounting has to add up. Problems are listed, not patched." },
-  { icon: "calc", title: "Analyze", text: "Python calculates margins, cash flow, debt and year-over-year changes, then ranks the changes that are large enough to need an explanation." },
-  { icon: "search", title: "Investigate", text: "For each flagged change, the investigator searches the company's 10-K for management's own explanation. A quote counts only if code finds it word for word in the filing." },
-  { icon: "doc", title: "Report", text: "Writes a report with charts and citations, re-checks every number and quote, and then waits for an analyst to review and approve it." },
+const BENEFITS: { icon: IconName; title: string; text: string }[] = [
+  { icon: "layers", title: "Compare performance", text: "Revenue, margins, profit, cash flow, cash and debt for three fiscal years, side by side, with the change from each year to the next." },
+  { icon: "spark", title: "Understand major changes", text: "The largest year-over-year moves are picked out and looked into one at a time, so you start with what actually changed." },
+  { icon: "quote", title: "Inspect supporting evidence", text: "Each explanation shows the sentence from the company's 10-K, where it sits in the filing, and whether the evidence supports it." },
 ];
 
-const CAPABILITIES: { title: string; text: string; where: string }[] = [
-  { title: "Three-year comparisons", text: "Revenue, profit, margins, cash flow, cash and debt side by side for three fiscal years, with the change from each year to the next.", where: "Key metrics, charts and the financial table" },
-  { title: "Traceable calculations", text: "Every metric records its formula and the XBRL facts it came from, down to the filing accession number. Calculated measures such as free cash flow are labeled as calculated.", where: "Sources and limitations, Calculations" },
-  { title: "Investigation of major changes", text: "Changes beyond configurable thresholds are ranked and investigated one at a time, within a fixed budget of steps, so the work is bounded and repeatable.", where: "Biggest changes" },
-  { title: "Sources behind explanations", text: "Each explanation shows the quoted sentence, the passage around it, the 10-K section it sits in and a link to the filing. Changes the filings do not explain are reported as unexplained.", where: "Evidence status on every finding" },
-  { title: "Downloadable reports", text: "The report as HTML and Markdown, the dataset, metrics and audit trail as CSV, findings and review records as JSON, and each chart as PNG with its data.", where: "Downloads" },
+const STEPS: { title: string; text: string }[] = [
+  { title: "Choose a company", text: "Search by name or ticker. FinSight picks the last three completed fiscal years from the company's annual filings." },
+  { title: "Explore the analysis", text: "Read the summary, check the key metrics and charts, and see which changes were large enough to look into." },
+  { title: "Review the evidence", text: "Open any finding to read what management said, view the passage in the filing, and see what remains unexplained." },
 ];
 
-function Preview() {
-  const res = useLoad<RunResult>((signal) => sample.result(DEFAULT_SAMPLE, signal), "landing-preview");
+function HeroPreview({ res }: { res: Loadable<RunResult> }) {
   if (res.state !== "ready") {
     return (
-      <div className="preview-frame is-empty">
-        <p className="muted">{res.state === "loading" ? "Loading the sample analysis…" : "The sample preview could not be loaded."}</p>
-        <Link className="btn" to={SAMPLE_PATH}>Open the sample analysis</Link>
+      <div className="preview-frame is-loading">
+        {res.state === "loading" ? (
+          <>
+            <span className="sr-only" role="status">Loading the sample preview</span>
+            <Skeleton height={20} width="60%" />
+            <div className="preview-metrics"><Skeleton height={84} /><Skeleton height={84} /><Skeleton height={84} /></div>
+            <Skeleton height={236} />
+          </>
+        ) : (
+          <>
+            <p className="muted">The sample preview could not be loaded.</p>
+            <Link className="btn" to={SAMPLE_PATH}>Explore sample report</Link>
+          </>
+        )}
       </div>
     );
   }
   const r = res.data;
-  const chart = r.charts.find((c) => c.id === "chart:cash_flow") ?? r.charts[0];
+  const chart = r.charts.find((c) => c.id === "chart:revenue_profit") ?? r.charts[0];
+  const metrics = ["revenue", "operating_margin", "free_cash_flow"]
+    .map((n) => r.key_metrics.find((m) => m.name === n))
+    .filter((m): m is KeyMetric => Boolean(m));
+  const finding = r.changes[0];
   return (
     <div className="preview-frame">
-      <div className="preview-bar">
-        <span className="mono">finsight / sample / {DEFAULT_SAMPLE}</span>
+      <div className="preview-head">
+        <div>
+          <p className="preview-company">{displayCompany(r.overview.company.name)}</p>
+          <p className="muted num">{periodRange(r.overview.periods.map((p) => p.label))}</p>
+        </div>
         <SyntheticBadge />
       </div>
-      <div className="preview-body">
-        <div className="preview-head">
+      <div className="preview-metrics">
+        {metrics.map((m) => <MetricTile key={m.name} metric={m} compact />)}
+      </div>
+      {chart && <ChartCard chart={chart} compact />}
+      {finding && (
+        <div className="preview-finding">
           <div>
-            <p className="eyebrow">Sample analysis</p>
-            <p className="preview-company">{displayCompany(r.overview.company.name)}</p>
-            <p className="run-meta">
-              <span className="mono">{r.overview.company.ticker}</span>
-              <span>{periodRange(r.overview.periods.map((p) => p.label))}</span>
-              <span>Latest 10-K filed {formatDate(r.overview.periods[r.overview.periods.length - 1]?.filed)}</span>
-            </p>
+            <p className="preview-finding-label">Biggest change</p>
+            <p className="preview-finding-text">{changeTitle(finding)}</p>
+            <p className="muted num">{finding.comparison} · {finding.magnitude}</p>
           </div>
-          <ReviewBadge review={r.status.review} />
+          <EvidenceBadge evidence={finding.evidence} label={finding.evidence_label} />
         </div>
-        <div className="metrics preview-metrics">
-          {r.key_metrics.filter((m) => ["revenue", "operating_margin", "free_cash_flow", "interest_bearing_debt"].includes(m.name)).map((m) => (
-            <MetricTile key={m.name} metric={m} />
-          ))}
+      )}
+      <p className="preview-foot muted">
+        The real report screen, showing a synthetic sample company. No real company's figures are shown here.
+      </p>
+    </div>
+  );
+}
+
+/** One finding from the sample, laid out the way the report shows it. */
+function FindingPreview({ res }: { res: Loadable<RunResult> }) {
+  if (res.state !== "ready") return <div className="finding-preview is-loading"><Skeleton height={260} /></div>;
+  const r = res.data;
+  const change = r.changes.find((c) => c.finding && c.finding.quotes.length > 0) ?? r.changes[0];
+  const f = change?.finding;
+  if (!change || !f) return null;
+  const quote = f.quotes[0];
+  const passage = quote ? r.passages.find((p) => p.id === quote.passage_id) : undefined;
+  return (
+    <div className="finding-preview">
+      <div className="finding-preview-head">
+        <div>
+          <p className="finding-preview-title">{changeTitle(change)}</p>
+          <p className="muted num">{change.metric_label} · {change.comparison} · {change.magnitude}</p>
         </div>
-        <div className="preview-split">
-          {chart && <ChartCard chart={chart} compact />}
-          <div className="panel preview-changes">
-            <div className="panel-head"><h3>Biggest changes</h3><span className="muted">top {Math.min(4, r.changes.length)} of {r.changes.length}</span></div>
-            <ol>
-              {r.changes.slice(0, 4).map((c) => (
-                <li key={c.id}>
-                  <span className="change-rank num">{String(c.rank).padStart(2, "0")}</span>
-                  <span className="preview-change-text">{c.description}</span>
-                  <EvidenceBadge evidence={c.evidence} label={c.evidence_label} />
-                </li>
-              ))}
-            </ol>
-          </div>
-        </div>
+        <SyntheticBadge />
       </div>
-      <div className="preview-foot">
-        <p className="muted">This is the real results screen, showing the bundled synthetic sample.</p>
-        <Link to={SAMPLE_PATH}>Open the full sample <Icon name="arrow" size={13} className="inline-icon" /></Link>
-      </div>
+      <ol className="finding-preview-parts">
+        <li>
+          <p className="fpart-title"><Icon name="calc" size={15} /> What the numbers show</p>
+          <p>{f.calculated_observation}</p>
+        </li>
+        <li>
+          <p className="fpart-title"><Icon name="quote" size={15} /> What management says</p>
+          {quote ? <blockquote>“{quote.text}”</blockquote> : <p className="muted">No explanation was found in the filing text.</p>}
+          {passage && <p className="muted small">{passage.form} for {passage.fiscal_period ?? "the period"} · {passage.section}</p>}
+        </li>
+        <li>
+          <p className="fpart-title"><Icon name="shield" size={15} /> Does the filing evidence support it?</p>
+          <p><EvidenceBadge evidence={change.evidence} label={change.evidence_label} /></p>
+          <p className="secondary">
+            A matching quote confirms what the company wrote. It does not prove the explanation is correct.
+          </p>
+        </li>
+      </ol>
     </div>
   );
 }
 
 export function Landing() {
   useDocumentTitle("");
+  const res = useLoad<RunResult>((signal) => sample.result(DEFAULT_SAMPLE, signal), "landing-preview");
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    if (!menuOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setMenuOpen(false);
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [menuOpen]);
+
   return (
     <div className="landing">
       <a className="skip-link" href="#content">Skip to content</a>
-      <header className="landing-nav">
-        <div className="wrap landing-nav-inner">
+      <header className="topbar landing-nav">
+        <div className="topbar-inner">
           <Logo />
-          <nav aria-label="Main">
-            <ul>
+          <nav id="landing-menu" aria-label="Main" className={menuOpen ? "is-open" : ""}>
+            <ul onClick={() => setMenuOpen(false)}>
               <li><a href="#how">How it works</a></li>
-              <li><a href="#preview">Preview</a></li>
+              <li><a href="#report">Report preview</a></li>
+              <li><a href="#scope">What it covers</a></li>
               <li><a href={REPO_URL} target="_blank" rel="noreferrer noopener">GitHub<span className="sr-only"> (opens in a new tab)</span></a></li>
             </ul>
           </nav>
-          <Link className="btn btn-primary" to="/app">Launch workspace</Link>
+          <div className="topbar-side">
+            <Link className="btn btn-sm btn-primary" to="/app">Analyze a company</Link>
+            <button type="button" className="menu-btn" aria-expanded={menuOpen} aria-controls="landing-menu" onClick={() => setMenuOpen((v) => !v)}>
+              <Icon name={menuOpen ? "x" : "menu"} size={18} />
+              <span className="sr-only">{menuOpen ? "Close menu" : "Menu"}</span>
+            </button>
+          </div>
         </div>
       </header>
 
       <main id="content">
         <section className="hero">
-          <div className="wrap">
-            <p className="eyebrow">Agentic financial analysis on SEC filings</p>
-            <h1>Three years of financial performance. <span>A clearer picture.</span></h1>
-            <p className="hero-lede">
-              FinSight AI turns a company's annual filings into validated metrics, charts and explanations you can trace
-              back to the sentence in the 10-K. Every report stops for analyst review.
-            </p>
-            <div className="hero-actions">
-              <Link className="btn btn-primary btn-lg" to="/app">Analyze a company <Icon name="arrow" /></Link>
-              <Link className="btn btn-lg" to={SAMPLE_PATH}>Explore sample analysis</Link>
+          <div className="wrap hero-grid">
+            <div className="hero-copy">
+              <p className="eyebrow">Financial analysis from SEC filings</p>
+              <h1>Understand what changed. <span>See why it matters.</span></h1>
+              <p className="hero-lede">
+                Explore three years of company financials, uncover the biggest changes, and trace explanations back to
+                the filings.
+              </p>
+              <div className="hero-actions">
+                <Link className="btn btn-primary btn-lg" to="/app">Analyze a company <Icon name="arrow" /></Link>
+                <Link className="btn btn-lg" to={SAMPLE_PATH}>Explore sample report</Link>
+              </div>
+              <p className="hero-note muted">No sign-up. The sample report works without the live service.</p>
             </div>
-            <ul className="hero-facts">
-              <li><Icon name="calc" size={14} /> Calculations run in Python, not in a language model</li>
-              <li><Icon name="quote" size={14} /> Quotes are verified word for word against the filing</li>
-              <li><Icon name="shield" size={14} /> Reports wait for a person to approve them</li>
-            </ul>
+            <div className="hero-preview" id="preview" aria-label="Product preview">
+              <HeroPreview res={res} />
+            </div>
           </div>
-          <div className="wrap" id="preview">
-            <Preview />
+        </section>
+
+        <section className="band" aria-labelledby="benefits-h">
+          <div className="wrap">
+            <h2 id="benefits-h" className="sr-only">What you get</h2>
+            <ul className="benefits">
+              {BENEFITS.map((b) => (
+                <li key={b.title}>
+                  <span className="benefit-icon"><Icon name={b.icon} size={18} /></span>
+                  <h3>{b.title}</h3>
+                  <p>{b.text}</p>
+                </li>
+              ))}
+            </ul>
           </div>
         </section>
 
         <section className="band" id="how" aria-labelledby="how-h">
           <div className="wrap">
             <p className="eyebrow">How it works</p>
-            <h2 id="how-h">From a ticker to a reviewed report, in five steps</h2>
-            <p className="band-lede">One orchestrator runs the steps in order, saves a checkpoint after each, and retries or stops with a reason when something goes wrong.</p>
-            <ol className="workflow">
-              {WORKFLOW.map((step, i) => (
-                <li key={step.title}>
-                  <p className="workflow-n num">{String(i + 1).padStart(2, "0")}</p>
-                  <h3><Icon name={step.icon} size={16} className="inline-icon" /> {step.title}</h3>
-                  <p>{step.text}</p>
+            <h2 id="how-h">From a company name to the evidence, in three steps</h2>
+            <ol className="steps3">
+              {STEPS.map((s, i) => (
+                <li key={s.title}>
+                  <span className="step-num num">{i + 1}</span>
+                  <h3>{s.title}</h3>
+                  <p>{s.text}</p>
                 </li>
               ))}
             </ol>
+            <details className="more">
+              <summary><Icon name="chevron" size={14} /> What happens behind the scenes</summary>
+              <div className="more-body">
+                <p>
+                  Each analysis runs through eight stages: planning, collecting, validating, calculating, investigating,
+                  writing, reviewing, and waiting for analyst review. Figures are calculated in Python, not by a language
+                  model. A quotation counts only when code finds it word for word in the filing. The details are in
+                  the <ExternalLink href={ARCHITECTURE_URL}>architecture notes</ExternalLink>.
+                </p>
+              </div>
+            </details>
           </div>
         </section>
 
-        <section className="band" aria-labelledby="cap-h">
-          <div className="wrap">
-            <p className="eyebrow">What you get</p>
-            <h2 id="cap-h">Built to be checked, not just read</h2>
-            <dl className="ledger">
-              {CAPABILITIES.map((c) => (
-                <div key={c.title}>
-                  <dt>{c.title}</dt>
-                  <dd>
-                    <p>{c.text}</p>
-                    <p className="ledger-where"><Badge icon="arrow">In the app</Badge> {c.where}</p>
-                  </dd>
-                </div>
-              ))}
-            </dl>
+        <section className="band" id="report" aria-labelledby="report-h">
+          <div className="wrap report-band">
+            <div className="report-band-copy">
+              <p className="eyebrow">Report preview</p>
+              <h2 id="report-h">Every finding keeps three things apart</h2>
+              <p className="band-lede">
+                What the numbers show, what management says about it, and whether the filing evidence supports that
+                account. You can open the passage behind any quotation.
+              </p>
+              <Link className="btn" to={`${SAMPLE_PATH}#changes`}>See all findings in the sample <Icon name="arrow" size={14} /></Link>
+            </div>
+            <FindingPreview res={res} />
           </div>
         </section>
 
-        <section className="band" id="trust" aria-labelledby="trust-h">
+        <section className="band" id="scope" aria-labelledby="scope-h">
           <div className="wrap">
-            <p className="eyebrow">Trust and limitations</p>
-            <h2 id="trust-h">What the numbers are, and what they are not</h2>
-            <div className="trust">
+            <p className="eyebrow">What it covers</p>
+            <h2 id="scope-h">Clear about its sources and its limits</h2>
+            <div className="scope">
               <article>
-                <h3>Data sources</h3>
-                <p>Figures come from the SEC's XBRL company facts, and explanations from the company's own 10-K text on EDGAR. Each report lists the documents it read, when it fetched them and a hash of their contents.</p>
+                <h3><Icon name="building" size={16} /> Supported companies</h3>
+                <p>{ELIGIBILITY}</p>
               </article>
               <article>
-                <h3>Reporting dates</h3>
-                <p>Fiscal years are defined by the period each 10-K reports on, not the calendar year. Every report shows the period dates, the filing dates and the cutoff after which filings were not considered.</p>
+                <h3><Icon name="doc" size={16} /> Sources</h3>
+                <p>Figures come from the SEC's reported company data and explanations from the company's own 10-K text. Every report lists the filings it read.</p>
               </article>
               <article>
-                <h3>Analyst review</h3>
-                <p>An automated reviewer re-checks every number and quote, but it cannot approve a report. Reports are marked as awaiting review until a person approves them, and partial results are labeled as partial.</p>
-              </article>
-              <article>
-                <h3>Supported companies</h3>
-                <p>US-listed, nonfinancial operating companies that file Form 10-K in US dollars. Banks, insurers, broker-dealers, REITs and foreign filers on Form 20-F or 40-F are declined with an explanation.</p>
+                <h3><Icon name="shield" size={16} /> Analyst review</h3>
+                <p>Automated checks re-verify every number and quotation, but they cannot approve a report. Each report is marked as awaiting review until a person approves it.</p>
               </article>
             </div>
-            <div className="limits">
-              <h3>Known limits</h3>
-              <ul className="bullets">
-                <li>Explanations are the company's own account from its filings. They are quoted, not independently verified.</li>
-                <li>Only consolidated totals are analysed. Segment data, peers and quarterly figures are not.</li>
-                <li>Missing figures are reported as missing. Nothing is estimated or filled in.</li>
-                <li>Without a language model configured, a rule-based investigator is used. It is labeled, and it leaves more changes unexplained.</li>
-                <li>There is no overall financial-health score and no buy or sell view. The details are in the <ExternalLink href={ARCHITECTURE_URL}>architecture notes</ExternalLink>.</li>
-              </ul>
-            </div>
+            <details className="more">
+              <summary><Icon name="chevron" size={14} /> Known limits</summary>
+              <div className="more-body">
+                <ul className="bullets">
+                  <li>Explanations are the company's own account from its filings. They are quoted, not independently verified.</li>
+                  <li>Only consolidated totals are analysed. Segment data, peers and quarterly figures are not.</li>
+                  <li>Missing figures are reported as missing. Nothing is estimated or filled in.</li>
+                  <li>Without an AI model configured, a rule-based investigator is used. It is labeled, and it leaves more changes unexplained.</li>
+                  <li>There is no overall financial-health score and no buy or sell view. FinSight is an analytical tool, not investment advice.</li>
+                </ul>
+              </div>
+            </details>
           </div>
         </section>
 
         <section className="cta">
           <div className="wrap cta-inner">
             <div>
-              <h2>See it on a company you know</h2>
-              <p className="muted">Start with the sample, or search for a ticker in the workspace.</p>
+              <h2>Start with a company you know</h2>
+              <p className="secondary">Or open the sample report to see a finished analysis first.</p>
             </div>
             <div className="hero-actions">
-              <Link className="btn btn-primary btn-lg" to="/app">Launch workspace</Link>
-              <Link className="btn btn-lg" to={SAMPLE_PATH}>Explore sample analysis</Link>
+              <Link className="btn btn-primary btn-lg" to="/app">Analyze a company <Icon name="arrow" /></Link>
+              <Link className="btn btn-lg" to={SAMPLE_PATH}>Explore sample report</Link>
             </div>
           </div>
         </section>
