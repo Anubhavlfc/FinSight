@@ -1,0 +1,14 @@
+# Used by `streamlit run finsight/dashboard/app.py` from the repository root.
+# `finsight-dashboard` passes the same values on the command line.
+[theme]
+base = "dark"
+primaryColor = "#35c9c0"
+backgroundColor = "#08101c"
+secondaryBackgroundColor = "#0f1929"
+textColor = "#f2f4f8"
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"

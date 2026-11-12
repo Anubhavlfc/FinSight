@@ -6,7 +6,8 @@ metrics in Python, finds the largest changes, looks for the company's own explan
 one in its 10-K, and writes a report with charts in which every number and quote can be traced
 to a filing. A person reviews and approves the report; the system never approves its own work.
 
-It has two front ends over one engine: a **web app** (React + FastAPI) and a **CLI**.
+It has three front ends over one engine: a **web app** (React + FastAPI), a **Streamlit dashboard**
+and a **CLI**.
 
 ![Landing page](docs/screenshots/landing.png)
 
@@ -78,7 +79,7 @@ says so and offers the sample. It does not substitute demo figures.
 
 | Task | Command |
 |---|---|
-| Backend tests (offline) | `pytest` |
+| Backend and dashboard tests (offline) | `pytest` |
 | Frontend type check and production build | `cd web && npm run build` |
 | Browser tests (desktop, tablet, phone) | `cd web && npx playwright install chromium && npx playwright test` |
 | Regenerate API types after changing `finsight/api/schemas.py` | `python scripts/export_openapi.py && (cd web && npm run gen:api)` |
@@ -95,6 +96,57 @@ GitHub hosts the code. The app itself needs a host that can run the Python backe
 Pages cannot, it only serves static files. The recommended path is one Docker web service
 with a persistent disk, described step by step with costs in
 [docs/deployment.md](docs/deployment.md). **This repository is not deployed anywhere yet.**
+
+## Streamlit dashboard
+
+A single-process analyst dashboard: pick a company, run the orchestrated pipeline, read the
+results and record a review decision. It needs no Node build.
+
+```bash
+pip install -e ".[dashboard]"
+export FINSIGHT_SEC_USER_AGENT="Your App Name contact@your-domain.example"   # for real companies
+export ANTHROPIC_API_KEY=...                                                # optional: Claude investigator
+finsight-dashboard                       # http://localhost:8501 (extra args go to `streamlit run`)
+```
+
+Without `FINSIGHT_SEC_USER_AGENT` only the synthetic sample (`DEMO`) can be analysed, and the
+dashboard says so. Runs, results and review decisions are stored in the same SQLite database as
+the CLI and the web app (`.finsight/` under `FINSIGHT_HOME`, default the current directory).
+
+| Summary and key metrics | Changes with cited explanations |
+|---|---|
+| ![Dashboard summary](docs/screenshots/dashboard-summary.png) | ![Dashboard evidence](docs/screenshots/dashboard-evidence.png) |
+| **Charts** | **Human review** |
+| ![Dashboard charts](docs/screenshots/dashboard-charts.png) | ![Dashboard review](docs/screenshots/dashboard-review.png) |
+
+Screenshots are from a live run on Microsoft's FY2024 to FY2026 10-K filings with the Claude
+investigator.
+
+* **Sidebar**: company search against SEC EDGAR's ticker list, the three-year window (defaults to
+  the latest completed fiscal year), an optional question, Claude on or off, and the list of
+  stored analyses.
+* **Progress**: the eight stages with what each found, refreshed every two seconds. A run that
+  failed or was interrupted resumes from its last completed stage; an ambiguous company name
+  asks which company you meant.
+* **Summary, Metrics & charts**: key metrics with formulas, four charts with the plotted values,
+  the financial and year-over-year tables.
+* **Changes & evidence**: each flagged change with its calculated observation, the management
+  explanation, the filing quotes (verified verbatim or not) linked to the 10-K section on EDGAR,
+  any AI interpretation labelled as such, and open questions.
+* **Data quality, Sources**: validation issues, missing figures, every calculation with its input
+  facts, fiscal periods with their defining 10-K, cited passages with character offsets, and every
+  retrieved document with its SHA-256.
+* **Review & approval**: the automated reviewer's result, then the human review. The reviewer
+  marks each investigated change *Confirmed* or *Disputed*, confirms they compared the figures with
+  the filings and read the limitations, and gives their name. **Approve** is enabled only when every
+  change is confirmed; **Request changes** keeps the report unapproved and records why. Every
+  decision is appended to the run (`run.stats.human_reviews`) and appears in `run_summary.json`.
+* **Downloads**: the report preview and every export file listed under [CLI](#cli).
+
+The dashboard has no financial logic of its own. It drives the same `Orchestrator` on a background
+thread and builds its views with the web API's view builders (`finsight/api/views.py`), so its
+numbers are identical to the report and the downloads. `streamlit run finsight/dashboard/app.py`
+from the repository root also works and picks up `.streamlit/config.toml`.
 
 ## CLI
 
