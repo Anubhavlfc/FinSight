@@ -792,7 +792,8 @@
               "json",
               "md",
               "html",
-              "png"
+              "png",
+              "pdf"
             ],
             "title": "Format",
             "type": "string"

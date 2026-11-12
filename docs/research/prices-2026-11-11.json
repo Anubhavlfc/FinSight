@@ -1,0 +1,5 @@
+[
+ {"ticker":"MSFT","price":"521.125","as_of":"2026-11-11","source":"Consolidated tape (SIP) official closing price, Nasdaq-listed","source_url":null,"retrieved_at":"2026-11-12T21:03:00Z","note":"Retrieved through a brokerage market-data feed (Robinhood); the official close is public."},
+ {"ticker":"AAPL","price":"355.63","as_of":"2026-11-11","source":"Consolidated tape (SIP) official closing price, Nasdaq-listed","source_url":null,"retrieved_at":"2026-11-12T21:03:00Z","note":"Retrieved through a brokerage market-data feed (Robinhood); the official close is public."},
+ {"ticker":"GOOGL","price":"293.45","as_of":"2026-11-11","source":"Consolidated tape (SIP) official closing price, Nasdaq-listed","source_url":null,"retrieved_at":"2026-11-12T21:03:00Z","note":"Retrieved through a brokerage market-data feed (Robinhood); the official close is public."}
+]

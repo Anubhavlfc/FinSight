@@ -14,7 +14,7 @@ view builders as the web app, so it matches the report and the downloads exactly
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
 import altair as alt
 import pandas as pd
@@ -540,7 +540,42 @@ def review_tab(svc: DashboardService, res: s.RunResult) -> None:
         st.caption("To approve: " + ", ".join(missing) + ".")
 
 
+def research_panel(svc: DashboardService, res: s.RunResult) -> None:
+    st.subheader("Research report (PDF)")
+    st.caption("An equity research report: company header, Investment Summary, Business Description, Industry, "
+               "Valuation (market value and multiples at the price you enter), Financial Analysis, Investment "
+               "Risks and ESG, plus an appendix with every calculation and source. It gives no price target or "
+               "buy/hold/sell recommendation and carries this run's review status.")
+    existing = svc.research(res.status.id)
+    m = existing.market if existing else None
+    with st.form(f"research_{res.status.id}"):
+        c1, c2 = st.columns(2)
+        price = c1.number_input("Current share price (USD)", min_value=0.0, step=0.01, format="%.2f",
+                                value=float(m.price) if m else 0.0,
+                                help="Leave at 0 to skip market value and multiples. Use a published closing price.")
+        when = c2.date_input("Price as of", value=m.as_of if m else date.today(), max_value=date.today())
+        src = st.text_input("Price source", value=m.source if m else "",
+                            placeholder="e.g. Nasdaq official closing price")
+        url = st.text_input("Source link (optional)", value=(m.source_url or "") if m else "")
+        claude = st.toggle("Draft narrative sections with Claude", value=svc.availability().claude,
+                           disabled=not svc.availability().claude or res.status.synthetic,
+                           help="Off: the narrative sections quote the 10-K verbatim instead.")
+        go = st.form_submit_button("Build research PDF", type="primary")
+    if go:
+        with st.spinner("Building the research report…"):
+            try:
+                rep = svc.build_research(res.status.id, price or None, when, src, url, claude)
+                st.success("Built. Download it below.")
+            except DashboardError as exc:
+                st.error(str(exc))
+    elif existing:
+        st.caption(f"Last built {fmt_time(existing.created_at)}. "
+                   "Rebuild to change the price or pick up a new review decision.")
+
+
 def downloads_tab(svc: DashboardService, res: s.RunResult) -> None:
+    research_panel(svc, res)
+    st.divider()
     try:
         out, items = svc.downloads(res.status.id)
     except DashboardError as exc:
@@ -560,7 +595,7 @@ def downloads_tab(svc: DashboardService, res: s.RunResult) -> None:
         cols[0].markdown(f"**{esc(d.label)}**")
         cols[1].caption(f"{d.description} · {d.size_bytes / 1024:,.0f} KB")
         mime = {"csv": "text/csv", "json": "application/json", "md": "text/markdown", "html": "text/html",
-                "png": "image/png"}[d.format]
+                "png": "image/png", "pdf": "application/pdf"}[d.format]
         cols[2].download_button("Download", data=(out / d.name).read_bytes(),
                                 file_name=f"finsight-{res.status.id}-{d.name.replace('/', '-')}", mime=mime,
                                 key=f"dl_{d.name}", width="stretch", on_click="ignore")

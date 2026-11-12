@@ -150,6 +150,16 @@ def write_outputs(out_dir: Path, run: WorkflowRun, results: dict) -> list[Path]:
         full["sources"] += [d.model_dump(mode="json") for d in text.documents]
     if draft is not None:
         written += write_report_files(out_dir, draft, run)
+    research = results.get("research")
+    if research is not None:
+        from finsight.research.service import PDF_NAME, render
+
+        path = out_dir / PDF_NAME
+        render(research, results, path)
+        written.append(path)
+        rpath = out_dir / "research_report.json"
+        rpath.write_text(research.model_dump_json(indent=2))
+        written.append(rpath)
     path = out_dir / "analysis.json"
     path.write_text(json.dumps(full, indent=2, default=str))
     written.append(path)

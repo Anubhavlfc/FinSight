@@ -186,3 +186,16 @@ def test_run_from_the_sidebar_then_review_and_approve():
     assert not at.exception
     assert any("approved" in t.label for t in at.tabs)
     assert any("The report is final" in x.value for x in at.success)
+
+
+def test_research_pdf_is_built_from_the_dashboard_and_offered_as_a_download(svc):
+    from datetime import date
+
+    run_id = demo_run(svc)
+    with pytest.raises(DashboardError):  # a price needs its date and source
+        svc.build_research(run_id, 40.0, date(2026, 11, 2), "", "", use_claude=False)
+    rep = svc.build_research(run_id, 40.0, date(2026, 11, 2), "Test price (synthetic)", "", use_claude=False)
+    assert rep.market.price == 40 and rep.valuation.available
+    _, items = svc.downloads(run_id)
+    assert "research_report.pdf" in {d.name for d in items}
+    assert svc.read_file(run_id, "research_report.pdf").startswith(b"%PDF")

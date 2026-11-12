@@ -201,6 +201,43 @@ finsight approve <run_id> --note "checked"    # READY_FOR_REVIEW -> APPROVED (al
 
 Exit codes: `0` ready for review / partial / approved, `2` failed, `3` needs input.
 
+## Research report (PDF)
+
+A finished analysis can be turned into an equity research report as an A4 PDF: at most ten pages
+of body plus an appendix. The header gives the company name, exchange, ticker, sector, industry and
+the current price with its date. The body has an Investment Summary, Business Description, Industry
+Overview and Competitive Positioning, Valuation, Financial Analysis, Investment Risks, and
+Environmental, Social and Governance. The report is descriptive: it gives **no price target and no
+buy/hold/sell recommendation**.
+
+```bash
+finsight research-pdf <run_id> --price 521.13 --price-date 2026-11-11 \
+    --price-source "Nasdaq official closing price" [--price-url https://...]
+finsight research-pdf <run_id> --market docs/research/prices-2026-11-11.json
+finsight research-pdf <run_id> --no-llm            # quote the 10-K instead of AI-drafted summaries
+```
+
+In the dashboard, open **Downloads**, enter the price, its date and its source, and press
+**Build research PDF**; the PDF then appears in the download list. The web app lists it too once
+it has been built.
+
+Where each part comes from:
+
+| Part | Source |
+|---|---|
+| Exchange, sector, industry | SEC submissions file: `exchanges`, the SEC review office (`ownerOrg`, used as the sector) and the SIC code. Not GICS. |
+| Every financial figure | FinSight's validated metrics, by metric ID (Appendix A lists formula and inputs). |
+| Diluted shares, short-term investments | us-gaap facts from the latest 10-K, by tag and accession. |
+| Current price | **Supplied by you**, with its date and source. FinSight does not fetch prices; with no price the Valuation section says so and shows no multiples. |
+| Valuation | Market value of equity, enterprise value and trading multiples (P/E, P/FCF, FCF yield, EV/revenue, EV/operating income) at that price, from `finsight/research/valuation.py`. |
+| Business, industry, risks, ESG | The company's latest 10-K (Items 1 and 1A). With Claude: short summaries that must quote the filing; a paragraph is dropped unless a quote matches the passage verbatim, or if it states a figure none of its quotes contains. Without Claude: verbatim extracts. |
+| Management explanations | The run's reviewed findings, with their verified quotes. |
+
+Every statement carries `[S#]` citations that resolve to Appendix B (filing, accession, section,
+character offsets, link). Every page carries the run's human review status; until the analysis is
+approved, every page is watermarked **DRAFT · NOT APPROVED**. ESG coverage is limited to what the
+10-K says: proxy statements and third-party ESG ratings are not used.
+
 ## Configuration
 
 All variables are listed with comments in [.env.example](.env.example). API keys are read
@@ -300,6 +337,7 @@ finsight/
   investigator/    typed tools, bounded loop, investigation stage
   llm/             provider interface, Anthropic provider, offline stub, provider choice
   report/          report writer (Markdown + HTML), chart specs and rendering
+  research/        equity research report: header data, market valuation, cited narrative, A4 PDF
   review/          deterministic + LLM reviewer
   presentation.py  number formatting and the parser the reviewer checks it with
   cli.py
@@ -322,5 +360,6 @@ docs/              architecture, deployment, OpenAPI schema, screenshots
    Still to do: the single-prompt baseline for comparison.
 3. **Stage 3 (this release):** web app: FastAPI layer, React workspace, progress, results
    dashboard, report archive, downloads, bundled samples, container image.
-4. **Later:** PDF export, sign-in and per-user archives, a scheduled check for new 10-K
+4. **Research report:** PDF with market valuation and cited narrative (no target or rating).
+5. **Later:** sign-in and per-user archives, a scheduled check for new 10-K
    filings, uploaded reports, industry profiles, peers.

@@ -16,12 +16,13 @@ dependencies = [
     "lxml>=5",
     "matplotlib>=3.8",
     "anthropic>=1.0",
+    "reportlab>=4.2",
 ]
 
 [project.optional-dependencies]
 web = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
 dashboard = ["streamlit>=1.50"]
-dev = ["pytest>=8", "httpx>=0.27,<1", "fastapi>=0.115,<1", "uvicorn>=0.30,<1", "streamlit>=1.50"]
+dev = ["pytest>=8", "pypdf>=4", "httpx>=0.27,<1", "fastapi>=0.115,<1", "uvicorn>=0.30,<1", "streamlit>=1.50"]
 
 [project.scripts]
 finsight = "finsight.cli:main"

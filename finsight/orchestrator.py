@@ -465,6 +465,8 @@ class Orchestrator:
 
 
 def load_results(store: Store, run_id: str) -> dict:
+    from finsight.research.models import ResearchReport
+
     return {
         "plan": store.load_checkpoint(run_id, "plan", PlanCheckpoint),
         "collection": store.load_checkpoint(run_id, "collection", CollectionResult),
@@ -474,4 +476,15 @@ def load_results(store: Store, run_id: str) -> dict:
         "investigation": store.load_checkpoint(run_id, "investigation", InvestigationResult),
         "draft": store.load_checkpoint(run_id, "draft", ReportDraft),
         "review": store.load_checkpoint(run_id, "review", ReviewHistory),
+        "research": _optional_checkpoint(store, run_id, "research", ResearchReport),
     }
+
+
+def _optional_checkpoint(store: Store, run_id: str, stage: str, model):
+    """A derived output that can be rebuilt: one saved by an older schema is ignored, not fatal."""
+    from pydantic import ValidationError
+
+    try:
+        return store.load_checkpoint(run_id, stage, model)
+    except ValidationError:
+        return None

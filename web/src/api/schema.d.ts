@@ -441,7 +441,7 @@ export interface components {
              * Format
              * @enum {string}
              */
-            format: "csv" | "json" | "md" | "html" | "png";
+            format: "csv" | "json" | "md" | "html" | "png" | "pdf";
             /** Label */
             label: string;
             /**

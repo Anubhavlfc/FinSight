@@ -130,6 +130,16 @@ def build_companyfacts() -> dict:
                 if kind == "duration":
                     row = {"start": fy_start(y).isoformat(), **row}
                 add(tag, row)
+    # Diluted weighted-average shares (used by the research report's per-share value), in shares.
+    shares = {"WeightedAverageNumberOfDilutedSharesOutstanding": {"label": "Diluted shares", "description": LABEL,
+                                                                  "units": {"shares": []}}}
+    for accn, form, fy, filed, _ in FILINGS:
+        for y in (fy, fy - 1, fy - 2):
+            if y in TRUTH:
+                shares["WeightedAverageNumberOfDilutedSharesOutstanding"]["units"]["shares"].append(
+                    {"start": fy_start(y).isoformat(), "end": fy_end(y).isoformat(), "val": (60 - (y - 2022)) * M,
+                     "accn": accn, "fy": fy, "fp": "FY", "form": form, "filed": filed})
+    facts.update(shares)
     # Duplicate row in the same filing (with a frame), as companyfacts does.
     add(FIELDS["revenue"][0], {"start": "2025-07-01", "end": "2026-06-30", "val": 1239 * M,
                                "accn": "0009999901-26-000010", "fy": 2026, "fp": "FY", "form": "10-K",
