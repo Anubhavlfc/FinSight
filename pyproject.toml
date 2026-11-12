@@ -20,11 +20,13 @@ dependencies = [
 
 [project.optional-dependencies]
 web = ["fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
-dev = ["pytest>=8", "httpx>=0.27,<1", "fastapi>=0.115,<1", "uvicorn>=0.30,<1"]
+dashboard = ["streamlit>=1.50"]
+dev = ["pytest>=8", "httpx>=0.27,<1", "fastapi>=0.115,<1", "uvicorn>=0.30,<1", "streamlit>=1.50"]
 
 [project.scripts]
 finsight = "finsight.cli:main"
 finsight-api = "finsight.api.app:main"
+finsight-dashboard = "finsight.dashboard.launch:main"
 
 [tool.setuptools.packages.find]
 include = ["finsight*"]

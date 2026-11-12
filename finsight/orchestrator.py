@@ -22,7 +22,7 @@ import logging
 import time
 import uuid
 from datetime import datetime, timezone
-from typing import Callable
+from typing import Any, Callable
 
 from pydantic import BaseModel, Field
 
@@ -42,8 +42,10 @@ from finsight.contracts import (
     SourceDocument,
     ValidationReport,
     WorkflowRun,
+    utcnow,
 )
 from finsight.errors import (
+    InvalidTransitionError,
     AccessDeniedError,
     AmbiguousCompanyError,
     CompanyNotFoundError,
@@ -147,6 +149,37 @@ class Orchestrator:
         if run is None:
             raise KeyError(f"No run {run_id}")
         transition(run, S.APPROVED, f"approved by analyst{': ' + note if note else ''}")
+        self.store.save_run(run)
+        return run
+
+    def record_review(self, run_id: str, decision: str, reviewer: str, note: str = "",
+                      checks: dict[str, Any] | None = None) -> WorkflowRun:
+        """Record a person's review decision on a finished run.
+
+        ``approved`` moves the run to APPROVED (the only way it gets there). ``changes_requested``
+        leaves the state alone and keeps the reviewer's objections on the run, so the report stays
+        unapproved and the record of why is not lost. Every decision is appended to
+        ``run.stats["human_reviews"]``; nothing is overwritten.
+        """
+        if decision not in ("approved", "changes_requested"):
+            raise ValueError(f"Unknown review decision {decision!r}")
+        reviewer = " ".join((reviewer or "").split())
+        if not reviewer:
+            raise ValueError("A review decision needs the reviewer's name")
+        run = self.store.load_run(run_id)
+        if run is None:
+            raise KeyError(f"No run {run_id}")
+        if run.state not in (S.READY_FOR_REVIEW, S.PARTIAL):
+            raise InvalidTransitionError(
+                f"Only a finished, unapproved analysis can be reviewed (this one is {run.state.value})")
+        note = " ".join((note or "").split())
+        entry = {"decision": decision, "reviewer": reviewer, "note": note, "at": utcnow().isoformat(),
+                 "checks": checks or {}}
+        run.stats.setdefault("human_reviews", []).append(entry)
+        if decision == "approved":
+            transition(run, S.APPROVED, f"approved by analyst {reviewer}{': ' + note if note else ''}")
+        else:
+            run.updated_at = utcnow()
         self.store.save_run(run)
         return run
 
