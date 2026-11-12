@@ -59,7 +59,7 @@ QUESTION_MAX = 400
 SUPPORTED = ("US domestic, nonfinancial operating companies that file Form 10-K in USD. Banks, broker-dealers, "
              "insurers, REITs (SIC 6000-6799) and foreign private issuers (20-F/40-F) are not supported.")
 MEDIA_TYPES = {".csv": "text/csv; charset=utf-8", ".json": "application/json", ".md": "text/markdown; charset=utf-8",
-               ".html": "text/html; charset=utf-8", ".png": "image/png"}
+               ".html": "text/html; charset=utf-8", ".png": "image/png", ".pdf": "application/pdf"}
 # Generated reports quote filing text. They are escaped when written; this policy also stops any
 # script from running if one is opened in the browser from the API's origin.
 REPORT_CSP = "sandbox; default-src 'none'; img-src data:; style-src 'unsafe-inline'"

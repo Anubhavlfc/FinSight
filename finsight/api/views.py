@@ -64,6 +64,8 @@ EVIDENCE_LABEL = {
 }
 
 DOWNLOADS: list[tuple[str, str, str]] = [
+    ("research_report.pdf", "Research report (PDF)",
+     "CFA written-report layout: rating, target price, valuation, cited narrative and appendix"),
     ("report.html", "Report (HTML)", "Self-contained report with charts, citations and calculation notes"),
     ("report.md", "Report (Markdown)", "The same report as Markdown text"),
     ("financial_dataset.csv", "Financial dataset", "Accepted values per field and fiscal year, full precision"),
@@ -510,7 +512,8 @@ def ensure_outputs(settings: Settings, run: WorkflowRun, results: dict) -> Path:
     """Write the run's export files once per run state; later calls reuse them."""
     out = settings.output_dir / run.id
     marker = out / ".written"
-    stamp = f"{run.state.value}|{run.updated_at.isoformat()}"
+    research = results.get("research")
+    stamp = f"{run.state.value}|{run.updated_at.isoformat()}|{research.created_at.isoformat() if research else ''}"
     with _outputs_lock:
         if not marker.exists() or marker.read_text() != stamp:
             write_outputs(out, run, results)

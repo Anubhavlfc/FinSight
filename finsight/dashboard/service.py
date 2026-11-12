@@ -207,6 +207,43 @@ class DashboardService:
             except Exception as exc:  # InvalidTransitionError
                 raise DashboardError(str(exc)) from exc
 
+    # ---- research report ----------------------------------------------------------------
+    def research(self, run_id: str):
+        with self._store() as st:
+            return load_results(st, run_id).get("research")
+
+    def build_research(self, run_id: str, price: float | None, price_date: date | None, price_source: str,
+                       price_url: str = "", use_claude: bool = True):
+        """Build and store the research report; the PDF is rendered with the run's other downloads."""
+        from finsight.research.builder import ResearchError
+        from finsight.research.service import generate, manual_snapshot
+
+        if self.jobs.is_active(run_id):
+            raise DashboardError("This analysis is still running.")
+        with self._store() as st:
+            run = st.load_run(run_id)
+            if run is None:
+                raise DashboardError(f"No analysis with ID {run_id}.")
+            results = load_results(st, run.id)
+            plan = results.get("plan")
+            ticker = plan.plan.company.tickers[0] if plan and plan.plan.company.tickers else ""
+            market = None
+            if price:
+                if not price_date or not (price_source or "").strip():
+                    raise DashboardError("Give the price's date and source, or leave the price empty.")
+                if price_date > date.today():
+                    raise DashboardError("The price date cannot be in the future.")
+                market = manual_snapshot(ticker, price, price_date, price_source, price_url)
+            try:
+                source = self._source_for_request(run.request)
+            except ConfigurationError:
+                source = None
+            try:
+                return generate(st, self.settings, run, results, market, source,
+                                use_llm=use_claude and has_anthropic_credentials())
+            except (ResearchError, ValueError) as exc:
+                raise DashboardError(str(exc)) from exc
+
     # ---- files --------------------------------------------------------------------------
     def downloads(self, run_id: str) -> tuple[Path, list[s.DownloadInfo]]:
         with self._store() as st:

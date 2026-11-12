@@ -112,7 +112,8 @@ def test_transient_failure_fails_then_resume_completes(settings, store):
 def test_stale_company_facts_trigger_one_bounded_refetch(settings, store):
     stale = json.loads((DEMO_FIXTURES / "companyfacts" / f"CIK{DEMO_CIK}.json").read_text())
     for concept in stale["facts"]["us-gaap"].values():
-        concept["units"]["USD"] = [r for r in concept["units"]["USD"] if r["accn"] != "0009999901-26-000010"]
+        for unit, rows in concept["units"].items():
+            concept["units"][unit] = [r for r in rows if r["accn"] != "0009999901-26-000010"]
     body = json.dumps(stale).encode()
     transport = FixtureBackedTransport(facts_override=[body, body, body])
     orch = Orchestrator(settings, store, live_factory(settings, transport))

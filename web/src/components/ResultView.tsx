@@ -263,12 +263,12 @@ function Interpretation({ areas, changes }: { areas: InterpretationArea[]; chang
 
 // ---------------------------------------------------------------- downloads
 
-const FORMAT_LABEL: Record<DownloadInfo["format"], string> = { html: "HTML", md: "Markdown", csv: "CSV", json: "JSON", png: "PNG" };
+const FORMAT_LABEL: Record<DownloadInfo["format"], string> = { html: "HTML", md: "Markdown", csv: "CSV", json: "JSON", png: "PNG", pdf: "PDF" };
 
 function Downloads({ downloads, source }: { downloads: DownloadInfo[]; source: ResultSource }) {
   const url = (name: string) => (source.kind === "run" ? api.fileUrl(source.id, name) : sample.fileUrl(source.id, name));
   const groups: [string, DownloadInfo[]][] = [
-    ["Report", downloads.filter((d) => d.format === "html" || d.format === "md")],
+    ["Report", downloads.filter((d) => d.format === "pdf" || d.format === "html" || d.format === "md")],
     ["Data", downloads.filter((d) => (d.format === "csv" || d.format === "json") && !d.name.startsWith("charts/"))],
     ["Charts", downloads.filter((d) => d.name.startsWith("charts/"))],
   ];

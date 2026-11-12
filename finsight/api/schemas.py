@@ -246,7 +246,7 @@ class RunStatus(_Out):
 class DownloadInfo(_Out):
     name: str = Field(description="File name relative to the run's download folder")
     label: str
-    format: Literal["csv", "json", "md", "html", "png"]
+    format: Literal["csv", "json", "md", "html", "png", "pdf"]
     description: str
     size_bytes: int
 
