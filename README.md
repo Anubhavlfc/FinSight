@@ -203,22 +203,18 @@ Exit codes: `0` ready for review / partial / approved, `2` failed, `3` needs inp
 
 ## Research report (PDF)
 
-A finished analysis can be turned into an equity research report laid out like the written
-report in the CFA Institute Research Challenge rules: at most ten A4 pages of body plus an
-appendix, with a header that gives the company name, exchange, ticker, sector, industry,
-recommendation (buy/hold/sell), current price with its date, and target price with the
-percentage change. The body has an Investment Summary, Business Description, Industry Overview
-and Competitive Positioning, Valuation, Financial Analysis, Investment Risks, and Environmental,
-Social and Governance. The first page is a **placeholder for the CFA Institute front cover**:
-FinSight never reproduces the cover or its logo. The placeholder lists the values for the
-cover's highlighted fields.
+A finished analysis can be turned into an equity research report as an A4 PDF: at most ten pages
+of body plus an appendix. The header gives the company name, exchange, ticker, sector, industry and
+the current price with its date. The body has an Investment Summary, Business Description, Industry
+Overview and Competitive Positioning, Valuation, Financial Analysis, Investment Risks, and
+Environmental, Social and Governance. The report is descriptive: it gives **no price target and no
+buy/hold/sell recommendation**.
 
 ```bash
 finsight research-pdf <run_id> --price 521.13 --price-date 2026-11-11 \
     --price-source "Nasdaq official closing price" [--price-url https://...]
 finsight research-pdf <run_id> --market docs/research/prices-2026-11-11.json
 finsight research-pdf <run_id> --no-llm            # quote the 10-K instead of AI-drafted summaries
-finsight research-pdf <run_id> --discount-rate 9 --terminal-growth 2.5   # override assumptions
 ```
 
 In the dashboard, open **Downloads**, enter the price, its date and its source, and press
@@ -232,17 +228,15 @@ Where each part comes from:
 | Exchange, sector, industry | SEC submissions file: `exchanges`, the SEC review office (`ownerOrg`, used as the sector) and the SIC code. Not GICS. |
 | Every financial figure | FinSight's validated metrics, by metric ID (Appendix A lists formula and inputs). |
 | Diluted shares, short-term investments | us-gaap facts from the latest 10-K, by tag and accession. |
-| Current price | **Supplied by you**, with its date and source. FinSight does not fetch prices; with no price the report is *Not rated*. |
-| Target price | DCF in `finsight/research/valuation.py`: latest revenue × average FCF margin over the analysed years, growth starting at the revenue CAGR (bounded 0 to 15%) and fading to terminal growth over ten years, discounted at risk-free + beta × equity risk premium. Assumptions and the risk-free rate (with its source) are in `config/research.toml`. Sensitivity table, implied multiples and a reverse DCF are printed with it. |
-| Recommendation | A fixed rule on the target's upside: BUY at +10% or more, SELL at −10% or less, otherwise HOLD. |
+| Current price | **Supplied by you**, with its date and source. FinSight does not fetch prices; with no price the Valuation section says so and shows no multiples. |
+| Valuation | Market value of equity, enterprise value and trading multiples (P/E, P/FCF, FCF yield, EV/revenue, EV/operating income) at that price, from `finsight/research/valuation.py`. |
 | Business, industry, risks, ESG | The company's latest 10-K (Items 1 and 1A). With Claude: short summaries that must quote the filing; a paragraph is dropped unless a quote matches the passage verbatim, or if it states a figure none of its quotes contains. Without Claude: verbatim extracts. |
 | Management explanations | The run's reviewed findings, with their verified quotes. |
 
-Every statement carries `[S#]` citations that resolve to Appendix C (filing, accession, section,
-character offsets, link). The report is labelled as model-generated on every page and carries
-the run's human review status; until the analysis is approved, every page is watermarked
-**DRAFT · NOT APPROVED**. ESG coverage is limited to what the 10-K says: proxy statements and
-third-party ESG ratings are not used.
+Every statement carries `[S#]` citations that resolve to Appendix B (filing, accession, section,
+character offsets, link). Every page carries the run's human review status; until the analysis is
+approved, every page is watermarked **DRAFT · NOT APPROVED**. ESG coverage is limited to what the
+10-K says: proxy statements and third-party ESG ratings are not used.
 
 ## Configuration
 
@@ -266,7 +260,6 @@ on the server only and are never sent to the browser.
 | `config/settings.toml` | Request pacing, retries, backoff, period rules, tolerances, change thresholds, unsupported industries, investigation budgets (`[investigation]`), LLM settings and run budget (`[llm]`) |
 | `config/mappings.toml` | Standardized field → ordered XBRL tags, sign rules, derivations |
 | `config/companies/<CIK>.toml` | Per-company tag overrides |
-| `config/research.toml` | Research report: DCF assumptions, dated risk-free rate with its source, rating thresholds |
 
 The change thresholds (revenue ±10%, operating margin ±3 pp, free cash flow ±20%, net
 income ±20%, capital expenditure ±25%, debt +25%, materiality 0.5% of revenue) are
@@ -344,7 +337,7 @@ finsight/
   investigator/    typed tools, bounded loop, investigation stage
   llm/             provider interface, Anthropic provider, offline stub, provider choice
   report/          report writer (Markdown + HTML), chart specs and rendering
-  research/        equity research report: header data, valuation, cited narrative, A4 PDF
+  research/        equity research report: header data, market valuation, cited narrative, A4 PDF
   review/          deterministic + LLM reviewer
   presentation.py  number formatting and the parser the reviewer checks it with
   cli.py
@@ -367,6 +360,6 @@ docs/              architecture, deployment, OpenAPI schema, screenshots
    Still to do: the single-prompt baseline for comparison.
 3. **Stage 3 (this release):** web app: FastAPI layer, React workspace, progress, results
    dashboard, report archive, downloads, bundled samples, container image.
-4. **Research report:** CFA-style PDF with valuation, rating and cited narrative.
+4. **Research report:** PDF with market valuation and cited narrative (no target or rating).
 5. **Later:** sign-in and per-user archives, a scheduled check for new 10-K
    filings, uploaded reports, industry profiles, peers.

@@ -13,7 +13,6 @@ from finsight.llm.factory import make_provider
 from finsight.research.builder import ResearchError, build_research
 from finsight.research.models import MarketSnapshot, ResearchReport
 from finsight.research.pdf import RenderStats, render_pdf
-from finsight.research.valuation import ValuationSettings, load_valuation_settings
 from finsight.sec.sources import DataSource
 from finsight.storage import Store
 
@@ -38,13 +37,11 @@ def manual_snapshot(ticker: str, price: str | float | Decimal, as_of: date, sour
 
 
 def generate(store: Store, settings: Settings, run: WorkflowRun, results: dict, market: MarketSnapshot | None,
-             source: DataSource | None, use_llm: bool = True, valuation: ValuationSettings | None = None,
-             ) -> ResearchReport:
-    vs = valuation or load_valuation_settings(settings.config_dir)
+             source: DataSource | None, use_llm: bool = True) -> ResearchReport:
     provider = None
     if use_llm and not run.request.offline:
         provider, _why = make_provider(settings, run.request.model_copy(update={"llm": "auto"}))
-    report = build_research(run, results, market, vs, source, provider)
+    report = build_research(run, results, market, source, provider)
     store.save_checkpoint(run.id, CHECKPOINT, report)
     return report
 

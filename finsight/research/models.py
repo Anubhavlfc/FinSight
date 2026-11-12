@@ -28,15 +28,6 @@ class MarketSnapshot(_M):
     note: str = ""
 
 
-class RateInput(_M):
-    """A market or analyst input to the discount rate, e.g. the risk-free rate."""
-
-    value_pct: Decimal
-    as_of: date | None = None
-    source: str
-    source_url: str | None = None
-
-
 class Citation(_M):
     id: str = Field(description="S1, S2, ... in order of first use")
     kind: Literal["filing_passage", "sec_data", "market_data", "engine"]
@@ -70,50 +61,27 @@ class Section(_M):
     provenance: str = Field(default="", description="How this section was produced, shown under the heading")
 
 
-class DcfYear(_M):
-    year: int
-    growth_pct: Decimal
-    fcf: Decimal
-    discount_factor: Decimal
-    present_value: Decimal
+class Multiple(_M):
+    name: str
+    value: str
+    basis: str
+    metric_ids: list[str] = Field(default_factory=list)
 
 
 class Valuation(_M):
+    """Market value at the supplied price. Descriptive: no price target and no rating."""
+
     available: bool
     reason: str = ""
-    method: str = "Free-cash-flow DCF with a Gordon-growth terminal value"
-    forecast_years: int | None = None
-    base_fcf_method: str | None = None
-    base_fcf_margin_pct: Decimal | None = None
-    base_fcf: Decimal | None = None
-    base_fcf_metric_id: str | None = None
-    discount_rate_pct: Decimal | None = None
-    terminal_growth_pct: Decimal | None = None
-    stage1_growth_pct: Decimal | None = None
-    projection: list[DcfYear] = Field(default_factory=list)
-    pv_explicit: Decimal | None = None
-    terminal_value: Decimal | None = None
-    pv_terminal: Decimal | None = None
-    enterprise_value: Decimal | None = None
+    market_cap: Decimal | None = None
     cash: Decimal | None = None
     short_term_investments: Decimal | None = None
     debt: Decimal | None = None
-    equity_value: Decimal | None = None
+    net_cash: Decimal | None = None
+    enterprise_value: Decimal | None = None
     diluted_shares: Decimal | None = None
-    value_per_share: Decimal | None = None
-    target_price: Decimal | None = None
-    upside_pct: Decimal | None = None
-    implied_stage1_growth_pct: Decimal | None = Field(
-        default=None, description="Stage-1 growth at which the DCF equals the current price (reverse DCF)")
-    sensitivity: dict[str, dict[str, Decimal | None]] = Field(
-        default_factory=dict, description="discount rate % -> terminal growth % -> value per share")
-    multiples: list[dict[str, str]] = Field(default_factory=list, description="name, at_price, at_target, basis")
-
-
-class Recommendation(_M):
-    rating: Literal["BUY", "HOLD", "SELL", "NOT RATED"]
-    rule: str
-    reason: str
+    multiples: list[Multiple] = Field(default_factory=list)
+    input_metric_ids: list[str] = Field(default_factory=list)
 
 
 class CompanyHeader(_M):
@@ -134,7 +102,6 @@ class ResearchReport(_M):
     header: CompanyHeader
     market: MarketSnapshot | None
     valuation: Valuation
-    recommendation: Recommendation
     assumptions: list[Assumption]
     sections: list[Section]
     citations: list[Citation]

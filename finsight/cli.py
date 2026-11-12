@@ -10,6 +10,7 @@
     finsight approve <run_id> --note "checked"
     finsight runs
     finsight research-pdf <run_id> --price 521.13 --price-date 2026-11-11 --price-source "Nasdaq official close"
+                                               # research report PDF (descriptive: no target or rating)
     finsight research-pdf <run_id> --market prices.json   # snapshot(s) with ticker, price, as_of, source
 """
 
@@ -163,7 +164,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("runs", help="List recent runs")
 
-    rp = sub.add_parser("research-pdf", help="Equity research report (CFA written-report layout) as PDF")
+    rp = sub.add_parser("research-pdf", help="Equity research report as PDF (no price target or rating)")
     rp.add_argument("run_id")
     rp.add_argument("--price", default=None, help="Current share price in USD")
     rp.add_argument("--price-date", type=date.fromisoformat, default=None, help="Date of that price (YYYY-MM-DD)")
@@ -171,8 +172,6 @@ def build_parser() -> argparse.ArgumentParser:
     rp.add_argument("--price-url", default=None)
     rp.add_argument("--market", type=Path, default=None, help="JSON file of market snapshots (see README)")
     rp.add_argument("--ticker", default=None, help="Ticker for the price (default: the company's first ticker)")
-    rp.add_argument("--discount-rate", type=float, default=None, help="Override the discount rate, in %%")
-    rp.add_argument("--terminal-growth", type=float, default=None, help="Override terminal growth, in %%")
     rp.add_argument("--no-llm", action="store_true", help="Quote 10-K passages instead of AI-drafted summaries")
     rp.add_argument("--output", type=Path, default=None, help="PDF path (default: <out>/<run_id>/research_report.pdf)")
     return p
@@ -221,11 +220,8 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def _research_pdf(args, store: Store, settings: Settings) -> int:
-    from decimal import Decimal
-
     from finsight.research.builder import ResearchError
     from finsight.research.service import PDF_NAME, generate, load_market_file, manual_snapshot, render
-    from finsight.research.valuation import load_valuation_settings
 
     run = store.load_run(args.run_id)
     if run is None:
@@ -247,27 +243,21 @@ def _research_pdf(args, store: Store, settings: Settings) -> int:
             return 1
         market = manual_snapshot(ticker, args.price, args.price_date, args.price_source, args.price_url)
     else:
-        print("No price given: the report will be NOT RATED. Use --price/--price-date/--price-source or --market.",
-              file=sys.stderr)
-    vs = load_valuation_settings(settings.config_dir)
-    if args.discount_rate is not None:
-        vs.discount_rate_override_pct = Decimal(str(args.discount_rate))
-    if args.terminal_growth is not None:
-        vs.terminal_growth_pct = Decimal(str(args.terminal_growth))
+        print("No price given: the report will have no market value or multiples. Use --price/--price-date/"
+              "--price-source or --market.", file=sys.stderr)
     source = make_source_factory(settings, args.fixtures)(run.request) if (run.request.offline or sec_user_agent()) \
         else None
     try:
-        report = generate(store, settings, run, results, market, source, use_llm=not args.no_llm, valuation=vs)
+        report = generate(store, settings, run, results, market, source, use_llm=not args.no_llm)
         results["research"] = report
         out = args.output or (args.out or settings.output_dir) / run.id / PDF_NAME
         stats = render(report, results, out)
     except (ResearchError, ValueError) as exc:
         print(f"Research report failed: {exc}", file=sys.stderr)
         return 1
-    v, r = report.valuation, report.recommendation
-    print(f"{report.header.name} ({report.header.ticker}): {r.rating}"
-          + (f", target ${v.target_price:,.2f} ({v.upside_pct:+.1f}%)" if v.available and v.upside_pct is not None
-             else f" ({r.reason})"))
+    v = report.valuation
+    print(f"{report.header.name} ({report.header.ticker}): "
+          + (", ".join(f"{m.name} {m.value}" for m in v.multiples) if v.available else v.reason))
     print(f"PDF: {out}  (body {stats.body_pages} page(s), appendix {stats.appendix_pages} page(s))")
     print(f"Review status: {report.review_status}")
     return 0

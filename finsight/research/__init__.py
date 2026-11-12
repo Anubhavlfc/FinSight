@@ -1,7 +1,7 @@
-"""Equity research report (CFA Research Challenge written-report layout) built on a finished run.
+"""Equity research report (PDF) built on a finished run.
 
-The report adds three things to the engine's analysis: a market price (a dated, cited
-snapshot supplied by the user or a public price feed), a valuation whose every
-assumption is listed, and narrative sections drawn from the company's own 10-K text.
-Every financial figure still comes from the engine's validated metrics.
+The report adds two things to the engine's analysis: a dated, cited share price supplied by the user
+(for market value and trading multiples) and narrative sections drawn from the company's own 10-K text.
+Every financial figure still comes from the engine's validated metrics. It sets no price target and
+makes no buy/hold/sell recommendation.
 """

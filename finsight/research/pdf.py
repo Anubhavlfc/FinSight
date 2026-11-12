@@ -1,8 +1,7 @@
 """Render a ``ResearchReport`` to an A4 PDF in the CFA Research Challenge written-report layout.
 
-Layout: a placeholder page for the CFA Institute front cover (never reproduced here), then the report
-body (at most ten A4 pages, checked after rendering), then an appendix (at most ten pages) with the
-calculations, valuation detail, sources and limitations.
+Layout: the report body (at most ten A4 pages, checked after rendering), then an appendix (at most ten
+pages) with the calculations, sources and limitations. Descriptive: no price target and no rating.
 """
 
 from __future__ import annotations
@@ -26,7 +25,6 @@ from reportlab.platypus import (
     Frame,
     Image,
     KeepTogether,
-    NextPageTemplate,
     PageBreak,
     PageTemplate,
     Paragraph,
@@ -38,6 +36,7 @@ from reportlab.platypus import (
 from finsight.contracts import CalculatedMetric, ChartSpec, MetricStatus, ValidationReport
 from finsight.export import FINANCIAL_ROWS, presentation_tables
 from finsight.research.builder import MODEL_LABEL
+from finsight.presentation import fmt_usd
 from finsight.research.models import ResearchReport, Section, money
 
 MAX_BODY_PAGES = 10
@@ -49,8 +48,6 @@ INK = colors.HexColor("#1b1b1b")
 MUTED = colors.HexColor("#5b5b57")
 RULE = colors.HexColor("#d9d8d3")
 SHADE = colors.HexColor("#f2f4f7")
-RATING_COLORS = {"BUY": colors.HexColor("#1f7a4d"), "HOLD": colors.HexColor("#8a6d00"),
-                 "SELL": colors.HexColor("#b42318"), "NOT RATED": MUTED}
 
 _FONTS_READY = False
 
@@ -153,7 +150,7 @@ def render_pdf(report: ResearchReport, metrics: list[CalculatedMetric], validati
         for attempt in range(6):
             marks: dict = {}
             total = _build(report, metrics, validation, images, out_path, marks, scale, trims, flagged_changes or [])
-            body = marks.get("appendix", total + 1) - marks.get("body", 2)
+            body = marks.get("appendix", total + 1) - marks.get("body", 1)
             if body <= MAX_BODY_PAGES:
                 return RenderStats(total, body, total - marks.get("appendix", total + 1) + 1, scale, trims)
             if attempt % 2 == 0:
@@ -203,11 +200,8 @@ def _build(report, metrics, validation, images, out_path, marks, scale, trims, f
                           bottomMargin=17 * mm, title=report.title, author="FinSight (model-generated)",
                           subject="Equity research report draft", creator="FinSight")
     frame = Frame(doc.leftMargin, doc.bottomMargin, doc.width, doc.height, id="f")
-    doc.addPageTemplates([PageTemplate(id="cover", frames=[frame]), PageTemplate(id="page", frames=[frame],
-                                                                                 onPage=footer)])
-    fl: list = []
-    fl += _cover(report, st)
-    fl += [NextPageTemplate("page"), PageBreak(), Marker("body", marks)]
+    doc.addPageTemplates([PageTemplate(id="page", frames=[frame], onPage=footer)])
+    fl: list = [Marker("body", marks)]
     fl += _first_page_header(report, st, doc.width)
     for sec in report.sections:
         fl += _section(sec, report, st, doc.width, metrics, images, trims)
@@ -220,31 +214,14 @@ def _build(report, metrics, validation, images, out_path, marks, scale, trims, f
 # ---- pieces ----------------------------------------------------------------------------------------
 
 
-def _cover(r: ResearchReport, st: Styles) -> list:
-    box = Table([[Paragraph(
-        "<b>CFA Institute Research Challenge front cover goes here.</b><br/><br/>"
-        "This page is a placeholder. Insert the official front cover provided by CFA Institute and fill in its "
-        "highlighted fields; do not alter any other part of it, including the CFA Institute logo. FinSight does "
-        "not reproduce the cover or the logo.", st.body)]], colWidths=[150 * mm], rowHeights=[60 * mm])
-    box.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 1, NAVY), ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                             ("LEFTPADDING", (0, 0), (-1, -1), 14), ("RIGHTPADDING", (0, 0), (-1, -1), 14),
-                             ("BACKGROUND", (0, 0), (-1, -1), SHADE)]))
-    fields = [["Field", "Value for the cover"]] + [[k, v] for k, v in _header_rows(r)]
-    t = Table([[Paragraph(md(a), st.cell_b if i == 0 else st.cell), Paragraph(md(b), st.cell_b if i == 0 else st.cell)]
-               for i, (a, b) in enumerate(fields)], colWidths=[50 * mm, 100 * mm])
-    t.setStyle(_grid())
-    return [Spacer(1, 30 * mm), box, Spacer(1, 10 * mm), Paragraph("Values for the cover's highlighted fields", st.h3),
-            t, Spacer(1, 6 * mm), Paragraph(MODEL_LABEL, st.small)]
-
-
 def _header_rows(r: ResearchReport) -> list[tuple[str, str]]:
-    h, m, v, rec = r.header, r.market, r.valuation, r.recommendation
+    h, m, v = r.header, r.market, r.valuation
     price = f"${money(m.price)} (as of {m.as_of:%d %B %Y})" if m else "Not supplied"
-    target = (f"${v.target_price:,.2f} ({v.upside_pct:+.1f}% {'increase' if v.upside_pct >= 0 else 'decrease'})"
-              if v.available and v.upside_pct is not None else "Not set")
-    return [("Company name", h.name), ("Exchange", h.exchange), ("Ticker symbol", h.ticker), ("Sector", h.sector),
-            ("Industry", h.industry), ("Recommendation", rec.rating), ("Current price", price),
-            ("Target price", target)]
+    rows = [("Company name", h.name), ("Exchange", h.exchange), ("Ticker symbol", h.ticker), ("Sector", h.sector),
+            ("Industry", h.industry), ("Current price", price)]
+    if v.available:
+        rows.append(("Market value", fmt_usd(v.market_cap)))
+    return rows
 
 
 def _grid(header: bool = True) -> TableStyle:
@@ -257,24 +234,18 @@ def _grid(header: bool = True) -> TableStyle:
 
 
 def _first_page_header(r: ResearchReport, st: Styles, width: float) -> list:
-    h, rec = r.header, r.recommendation
+    h = r.header
     title = Paragraph(f"{html.escape(h.name)}", st.h1)
     sub = Paragraph(f"{html.escape(h.exchange)}: {html.escape(h.ticker)}  ·  Fiscal years {r.periods[0]} to "
                     f"{r.periods[-1]}  ·  Report date {r.created_at:%d %B %Y}", st.small)
     rows = _header_rows(r)
-    left = [[Paragraph(f"<b>{k}</b>", st.cell), Paragraph(md(v), st.cell)] for k, v in rows if k != "Recommendation"]
-    lt = Table(left, colWidths=[30 * mm, 88 * mm])
-    lt.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.3, RULE), ("TOPPADDING", (0, 0), (-1, -1), 1.5),
-                            ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5), ("LEFTPADDING", (0, 0), (-1, -1), 2)]))
-    rating = Table([[Paragraph(f"<font color='white'><b>{rec.rating}</b></font>",
-                               ParagraphStyle("r", parent=st.h1, alignment=1, fontSize=20, leading=24))],
-                    [Paragraph("<font color='white'>Recommendation (model)</font>",
-                               ParagraphStyle("r2", parent=st.small, alignment=1, textColor=colors.white))]],
-                   colWidths=[width - 122 * mm], rowHeights=[16 * mm, 8 * mm])
-    rating.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), RATING_COLORS[rec.rating]),
-                                ("VALIGN", (0, 0), (-1, -1), "MIDDLE")]))
-    top = Table([[lt, rating]], colWidths=[122 * mm, width - 122 * mm])
-    top.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "TOP"), ("LEFTPADDING", (0, 0), (-1, -1), 0)]))
+    half = (len(rows) + 1) // 2
+    cell = lambda k, v: [Paragraph(f"<b>{k}</b>", st.cell), Paragraph(md(v), st.cell)]  # noqa: E731
+    grid = [cell(*rows[i]) + (cell(*rows[i + half]) if i + half < len(rows) else ["", ""]) for i in range(half)]
+    top = Table(grid, colWidths=[26 * mm, width / 2 - 26 * mm, 26 * mm, width / 2 - 26 * mm])
+    top.setStyle(TableStyle([("LINEBELOW", (0, 0), (-1, -1), 0.3, RULE), ("TOPPADDING", (0, 0), (-1, -1), 1.5),
+                             ("BOTTOMPADDING", (0, 0), (-1, -1), 1.5), ("LEFTPADDING", (0, 0), (-1, -1), 2),
+                             ("VALIGN", (0, 0), (-1, -1), "TOP")]))
     banner_text = (f"<b>{'Approved analysis' if r.run_state == 'APPROVED' else 'Draft for human review'}.</b> "
                    f"{html.escape(MODEL_LABEL)} Review status: {html.escape(r.review_status)}. Narrative: "
                    + ("AI-drafted from cited 10-K passages, quotes verified verbatim."
@@ -347,33 +318,32 @@ def _chart_grid(images: dict, width, st) -> list:
 def _valuation_tables(r: ResearchReport, st, width) -> list:
     v = r.valuation
     out: list = []
-    rows = [["Input", "Value", "Basis", "Source / explanation"]]
-    for a in r.assumptions:
-        src = a.explanation + (" " + " ".join(f"[{c}]" for c in a.citation_ids) if a.citation_ids else "")
-        rows.append([a.label, a.value, a.basis, src])
-    t = Table([[Paragraph(md(str(c)), st.cell_b if i == 0 else st.cell) for c in row] for i, row in enumerate(rows)],
-              colWidths=[38 * mm, 26 * mm, 18 * mm, width - 82 * mm], repeatRows=1)
-    t.setStyle(_grid())
-    out += [Paragraph("Valuation inputs and assumptions", st.h3), t]
-    if v.available and v.sensitivity:
-        gs = list(next(iter(v.sensitivity.values())).keys())
-        srows = [["Discount rate \\ terminal growth"] + [f"{g}%" for g in gs]]
-        for dr, row in v.sensitivity.items():
-            srows.append([f"{Decimal(dr):.2f}%"] + [f"${x:,.2f}" if x is not None else "n/a" for x in row.values()])
-        s = Table([[Paragraph(md(c), st.cell_b if i == 0 or j == 0 else st.cell) for j, c in enumerate(rw)]
-                   for i, rw in enumerate(srows)], colWidths=[50 * mm] + [30 * mm] * len(gs))
-        sty = _grid()
-        mid = len(srows) // 2
-        sty.add("BACKGROUND", (2, mid), (2, mid), colors.HexColor("#dff3ef"))
-        s.setStyle(sty)
-        out += [Paragraph("Sensitivity of value per share", st.h3), s]
+    if r.assumptions:
+        rows = [["Input", "Value", "Basis", "Source"]]
+        for a in r.assumptions:
+            src = a.explanation + (" " + " ".join(f"[{c}]" for c in a.citation_ids) if a.citation_ids else "")
+            rows.append([a.label, a.value, a.basis, src])
+        t = Table([[Paragraph(md(str(c)), st.cell_b if i == 0 else st.cell) for c in row]
+                   for i, row in enumerate(rows)], colWidths=[38 * mm, 26 * mm, 18 * mm, width - 82 * mm], repeatRows=1)
+        t.setStyle(_grid())
+        out += [Paragraph("Inputs", st.h3), t]
+    if v.available:
+        bn = fmt_usd
+        bridge = [["Market value of equity", bn(v.market_cap)], ["+ Interest-bearing debt", bn(v.debt)],
+                  ["− Cash and cash equivalents", bn(v.cash)], ["− Short-term investments", bn(v.short_term_investments)],
+                  ["Enterprise value", bn(v.enterprise_value)]]
+        b = Table([[Paragraph(md(c), st.cell_b if i in (0, len(bridge) - 1) and j == 0 else st.cell)
+                    for j, c in enumerate(rw)] for i, rw in enumerate(bridge)], colWidths=[60 * mm, 40 * mm])
+        sty = _grid(header=False)
+        sty.add("ALIGN", (1, 0), (1, -1), "RIGHT")
+        b.setStyle(sty)
+        out += [Paragraph("Market value to enterprise value", st.h3), b]
     if v.multiples:
-        mrows = [["Multiple", "At current price", "At target price", "Basis"]] + \
-                [[m["name"], m["at_price"], m["at_target"], m["basis"]] for m in v.multiples]
+        mrows = [["Multiple", "At current price", "Basis"]] + [[m.name, m.value, m.basis] for m in v.multiples]
         m = Table([[Paragraph(md(c), st.cell_b if i == 0 else st.cell) for c in rw] for i, rw in enumerate(mrows)],
-                  colWidths=[38 * mm, 26 * mm, 26 * mm, width - 90 * mm])
+                  colWidths=[38 * mm, 28 * mm, width - 66 * mm])
         m.setStyle(_grid())
-        out += [Paragraph("Implied multiples (cross-check, not used to set the target)", st.h3), m]
+        out += [Paragraph("Trading multiples", st.h3), m]
     return out
 
 
@@ -402,35 +372,9 @@ def _appendix(r: ResearchReport, metrics, validation: ValidationReport, flagged,
     if issues:
         out.append(Paragraph("Validation warnings", st.h3))
         out += [Paragraph(md(f"[{i.severity.value}] {i.message}"), st.small) for i in issues[:15]]
-    # B. valuation detail
-    v = r.valuation
-    out.append(CondPageBreak(60 * mm))
-    out.append(Paragraph("B. Valuation detail", st.h2))
-    if v.available:
-        prow = [["Year", "FCF growth", "Free cash flow", "Discount factor", "Present value"]]
-        for y in v.projection:
-            prow.append([f"Year {y.year}", f"{y.growth_pct:.2f}%", f"${y.fcf / Decimal(1e9):,.2f}bn",
-                         f"{y.discount_factor:.4f}", f"${y.present_value / Decimal(1e9):,.2f}bn"])
-        bn = lambda x: f"${x / Decimal(1e9):,.2f}bn"  # noqa: E731
-        prow += [["Terminal value", "", bn(v.terminal_value), "", bn(v.pv_terminal)],
-                 ["Enterprise value", "", "", "", bn(v.enterprise_value)],
-                 ["+ Cash and equivalents", "", "", "", bn(v.cash)],
-                 ["+ Short-term investments", "", "", "", bn(v.short_term_investments)],
-                 ["− Interest-bearing debt", "", "", "", bn(v.debt)],
-                 ["Equity value", "", "", "", bn(v.equity_value)],
-                 ["÷ Diluted shares", "", "", "", f"{v.diluted_shares / Decimal(1e6):,.0f}m"],
-                 ["Value per share", "", "", "", f"${v.value_per_share:,.2f}"]]
-        p = Table([[Paragraph(md(c), st.cell_b if i == 0 else st.cell) for c in rw] for i, rw in enumerate(prow)],
-                  colWidths=[45 * mm] + [(width - 45 * mm) / 4] * 4)
-        sty = _grid()
-        sty.add("ALIGN", (1, 0), (-1, -1), "RIGHT")
-        p.setStyle(sty)
-        out.append(p)
-    else:
-        out.append(Paragraph(md(v.reason), st.body))
     # C. sources
     out.append(CondPageBreak(40 * mm))
-    out.append(Paragraph("C. Sources", st.h2))
+    out.append(Paragraph("B. Sources", st.h2))
     out.append(Paragraph("All sources are public. Filing passages can be checked at the character offsets given, "
                          "in the text FinSight extracted from the filing.", st.small))
     for c in r.citations:
@@ -440,10 +384,10 @@ def _appendix(r: ResearchReport, metrics, validation: ValidationReport, flagged,
         out.append(Spacer(1, 1.2))
     # D. limitations and review
     out.append(CondPageBreak(40 * mm))
-    out.append(Paragraph("D. Method, limitations and review", st.h2))
+    out.append(Paragraph("C. Method, limitations and review", st.h2))
     out.append(Paragraph(md(
         f"Produced by FinSight from analysis run {r.run_id} (state {r.run_state}). Review status: {r.review_status}. "
-        f"Narrative sections: {r.narrative_provider}. Rating rule: {r.recommendation.rule}"), st.small))
+        f"Narrative sections: {r.narrative_provider}."), st.small))
     out += [Paragraph(md(x), st.small, bulletText="•") for x in r.limitations]
     out.append(Paragraph(md(MODEL_LABEL), st.small))
     return out

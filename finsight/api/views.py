@@ -65,7 +65,7 @@ EVIDENCE_LABEL = {
 
 DOWNLOADS: list[tuple[str, str, str]] = [
     ("research_report.pdf", "Research report (PDF)",
-     "CFA written-report layout: rating, target price, valuation, cited narrative and appendix"),
+     "Company header, market valuation, cited narrative sections and an appendix of calculations and sources"),
     ("report.html", "Report (HTML)", "Self-contained report with charts, citations and calculation notes"),
     ("report.md", "Report (Markdown)", "The same report as Markdown text"),
     ("financial_dataset.csv", "Financial dataset", "Accepted values per field and fiscal year, full precision"),

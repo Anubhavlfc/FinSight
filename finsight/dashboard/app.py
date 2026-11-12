@@ -542,18 +542,17 @@ def review_tab(svc: DashboardService, res: s.RunResult) -> None:
 
 def research_panel(svc: DashboardService, res: s.RunResult) -> None:
     st.subheader("Research report (PDF)")
-    st.caption("An equity research report in the CFA Research Challenge written-report layout: header with "
-               "recommendation and target price, Investment Summary, Business Description, Industry, Valuation, "
-               "Financial Analysis, Investment Risks and ESG, plus an appendix. The rating and target follow "
-               "mechanically from the price you enter and the assumptions in config/research.toml. It is a "
-               "model-generated draft and carries this run's review status.")
+    st.caption("An equity research report: company header, Investment Summary, Business Description, Industry, "
+               "Valuation (market value and multiples at the price you enter), Financial Analysis, Investment "
+               "Risks and ESG, plus an appendix with every calculation and source. It gives no price target or "
+               "buy/hold/sell recommendation and carries this run's review status.")
     existing = svc.research(res.status.id)
     m = existing.market if existing else None
     with st.form(f"research_{res.status.id}"):
         c1, c2 = st.columns(2)
         price = c1.number_input("Current share price (USD)", min_value=0.0, step=0.01, format="%.2f",
                                 value=float(m.price) if m else 0.0,
-                                help="Leave at 0 for an unrated report. Use a published closing price.")
+                                help="Leave at 0 to skip market value and multiples. Use a published closing price.")
         when = c2.date_input("Price as of", value=m.as_of if m else date.today(), max_value=date.today())
         src = st.text_input("Price source", value=m.source if m else "",
                             placeholder="e.g. Nasdaq official closing price")
@@ -566,14 +565,11 @@ def research_panel(svc: DashboardService, res: s.RunResult) -> None:
         with st.spinner("Building the research report…"):
             try:
                 rep = svc.build_research(res.status.id, price or None, when, src, url, claude)
-                st.success(f"Built: {rep.recommendation.rating}"
-                           + (f", target ${rep.valuation.target_price:,.2f} ({rep.valuation.upside_pct:+.1f}%)"
-                              if rep.valuation.available and rep.valuation.upside_pct is not None else "")
-                           + ". Download it below.")
+                st.success("Built. Download it below.")
             except DashboardError as exc:
                 st.error(str(exc))
     elif existing:
-        st.caption(f"Last built {fmt_time(existing.created_at)}: {existing.recommendation.rating}. "
+        st.caption(f"Last built {fmt_time(existing.created_at)}. "
                    "Rebuild to change the price or pick up a new review decision.")
 
 

@@ -14,10 +14,10 @@ from pypdf import PdfReader
 from finsight.contracts import AnalysisRequest, CalculatedMetric, FilingPassage, RunState
 from finsight.orchestrator import Orchestrator, load_results
 from finsight.research.builder import ResearchError, build_research
-from finsight.research.models import MarketSnapshot, Valuation
+from finsight.research.models import MarketSnapshot
 from finsight.research.narrative import TOPICS, draft_topic, extract
 from finsight.research.service import generate, manual_snapshot, render
-from finsight.research.valuation import ValuationSettings, dcf_value, load_valuation_settings, rate, value
+from finsight.research.valuation import value
 from finsight.sec.sources import FixtureSource
 from tests.conftest import DEMO_FIXTURES
 from tests.llm_fakes import ScriptedProvider, tool_turn
@@ -38,42 +38,7 @@ def _snap(price="40", ticker="DEMO") -> MarketSnapshot:
     return manual_snapshot(ticker, price, date(2026, 11, 2), "Test price (synthetic)")
 
 
-# --------------------------------------------------------------------------- valuation arithmetic
-
-
-def test_dcf_matches_a_hand_calculation():
-    # Two years, flat 10% growth then fading to 2%, r = 10%, no net cash, 1 share.
-    per_share, rows, pv, tv, pv_tv = dcf_value(D(100), D(10), D(2), D(10), 2, D(0), D(1))
-    fcf1, fcf2 = D(110), D(110) * D("1.02")
-    exp_pv = fcf1 / D("1.1") + fcf2 / D("1.21")
-    exp_tv = fcf2 * D("1.02") / D("0.08")
-    assert [r.growth_pct for r in rows] == [D(10), D(2)]
-    assert abs(pv - exp_pv) < D("1e-18") and abs(tv - exp_tv) < D("1e-18")
-    assert abs(per_share - (exp_pv + exp_tv / D("1.21"))) < D("1e-18")
-
-
-def test_discount_rate_must_exceed_terminal_growth():
-    with pytest.raises(ValueError):
-        dcf_value(D(100), D(5), D(9), D(9), 5, D(0), D(1))
-
-
-def test_config_assumptions_are_loaded_and_capm_rate_is_derived(settings):
-    vs = load_valuation_settings(settings.config_dir)
-    assert vs.risk_free is not None and vs.risk_free.source_url
-    assert vs.discount_rate_pct == vs.risk_free.value_pct + vs.beta * vs.equity_risk_premium_pct
-    assert vs.base_fcf_method in ("average_margin", "latest")
-
-
-@pytest.mark.parametrize("upside,expected", [(D("10.0"), "BUY"), (D("9.99"), "HOLD"), (D("-9.99"), "HOLD"),
-                                             (D("-10.0"), "SELL")])
-def test_rating_rule_thresholds(upside, expected):
-    v = Valuation(available=True, target_price=D(1), upside_pct=upside)
-    assert rate(v, _snap(), ValuationSettings()).rating == expected
-
-
-def test_no_price_means_not_rated():
-    v = Valuation(available=True, target_price=D(1), upside_pct=D(50))
-    assert rate(v, None, ValuationSettings()).rating == "NOT RATED"
+# --------------------------------------------------------------------------- market valuation
 
 
 def _metric(name, period, val, unit="USD"):
@@ -81,21 +46,29 @@ def _metric(name, period, val, unit="USD"):
                             formula="test")
 
 
-def test_non_positive_free_cash_flow_is_not_valued():
-    labels = ["FY1", "FY2"]
-    ms = [_metric("revenue", "FY1", 100), _metric("revenue", "FY2", 110), _metric("free_cash_flow", "FY1", 5),
-          _metric("free_cash_flow", "FY2", -20), _metric("cash_and_equivalents", "FY2", 10),
-          _metric("interest_bearing_debt", "FY2", 0)]
-    vs = ValuationSettings(risk_free=None, discount_rate_override_pct=D(9), base_fcf_method="latest")
-    v, _ = value(ms, labels, D(10), None, _snap(), vs)
-    assert not v.available and "not positive" in v.reason
+def _metrics(fcf=20):
+    return [_metric("revenue", "FY2", 200), _metric("net_income", "FY2", 25), _metric("operating_income", "FY2", 40),
+            _metric("free_cash_flow", "FY2", fcf), _metric("cash_and_equivalents", "FY2", 30),
+            _metric("interest_bearing_debt", "FY2", 50)]
 
 
-def test_missing_inputs_are_named_instead_of_guessed():
-    labels = ["FY1", "FY2"]
-    ms = [_metric("revenue", "FY1", 100), _metric("revenue", "FY2", 110), _metric("free_cash_flow", "FY2", 20)]
-    v, _ = value(ms, labels, None, None, _snap(), ValuationSettings(discount_rate_override_pct=D(9),
-                                                                   base_fcf_method="latest"))
+def test_market_value_and_multiples_match_a_hand_calculation():
+    v = value(_metrics(), ["FY1", "FY2"], D(10), D(5), _snap("50"))
+    assert v.available and v.market_cap == D(500)
+    assert v.net_cash == D(30) + D(5) - D(50) and v.enterprise_value == D(515)
+    got = {m.name: m.value for m in v.multiples}
+    assert got == {"P/E": "20.0x", "P/FCF": "25.0x", "FCF yield": "4.0%", "EV / revenue": "2.6x",
+                   "EV / operating income": "12.9x"}
+
+
+def test_negative_denominators_are_not_meaningful():
+    v = value(_metrics(fcf=-5), ["FY1", "FY2"], D(10), None, _snap("50"))
+    assert {m.name: m.value for m in v.multiples}["P/FCF"] == "n/m"
+
+
+def test_no_price_or_missing_inputs_are_named_instead_of_guessed():
+    assert not value(_metrics(), ["FY1", "FY2"], D(10), None, None).available
+    v = value([_metric("revenue", "FY2", 200)], ["FY1", "FY2"], None, None, _snap())
     assert not v.available
     for word in ("cash and cash equivalents", "interest-bearing debt", "diluted share count"):
         assert word in v.reason
@@ -146,9 +119,8 @@ def test_model_that_never_submits_falls_back_to_extracts():
 def test_report_has_every_required_field_and_section_and_fits_ten_pages(demo, settings, store, tmp_path):
     run, results = demo
     rep = generate(store, settings, run, results, _snap(), FixtureSource(DEMO_FIXTURES), use_llm=False)
-    assert rep.recommendation.rating in ("BUY", "HOLD", "SELL")
     assert [s.title for s in rep.sections] == SECTIONS
-    assert rep.valuation.available and rep.valuation.target_price is not None
+    assert rep.valuation.available and rep.valuation.market_cap == D(40) * rep.valuation.diluted_shares
     # every citation marker used in the text resolves to a listed source
     ids = {c.id for c in rep.citations}
     for s in rep.sections:
@@ -166,20 +138,22 @@ def test_report_has_every_required_field_and_section_and_fits_ten_pages(demo, se
     assert stats.body_pages <= 10 and stats.appendix_pages <= 10
     text = "\n".join(page.extract_text() for page in PdfReader(str(out)).pages)
     flat = " ".join(text.split())
-    for label in ("Company name", "Exchange", "Ticker symbol", "Sector", "Industry", "Recommendation",
-                  "Current price", "Target price", "as of 02 November 2026"):
+    for label in ("Company name", "Exchange", "Ticker symbol", "Sector", "Industry", "Current price",
+                  "as of 02 November 2026", "Trading multiples"):
         assert label in flat, label
     for title in SECTIONS:
         assert title in flat, title
-    assert "front cover goes here" in flat and "SYNTHETIC DEMO DATA" in flat
+    assert "SYNTHETIC DEMO DATA" in flat
     assert "DRAFT · NOT APPROVED" in flat and "Not investment advice" in flat
-    assert f"{rep.valuation.target_price:,.2f}" in flat
+    for word in ("CFA Institute", "front cover", "Recommendation", "Target price", "BUY", "SELL", "HOLD", "DCF"):
+        assert word not in flat, word
+    assert "DEMO" in PdfReader(str(out)).pages[0].extract_text()  # page 1 is the report, not a cover
 
 
-def test_without_a_price_the_report_is_unrated_but_still_renders(demo, settings, store, tmp_path):
+def test_without_a_price_the_report_still_renders(demo, settings, store, tmp_path):
     run, results = demo
     rep = generate(store, settings, run, results, None, FixtureSource(DEMO_FIXTURES), use_llm=False)
-    assert rep.recommendation.rating == "NOT RATED"
+    assert not rep.valuation.available and "No current share price" in rep.valuation.reason
     results["research"] = rep
     assert render(rep, results, tmp_path / "x.pdf").body_pages <= 10
 
@@ -193,7 +167,7 @@ def test_price_for_another_ticker_is_refused(demo, settings, store):
 def test_unfinished_run_is_refused(demo, settings):
     run, results = demo
     with pytest.raises(ResearchError):
-        build_research(run.model_copy(update={"state": RunState.COLLECTING}), results, None, ValuationSettings(), None, None)
+        build_research(run.model_copy(update={"state": RunState.COLLECTING}), results, None, None, None)
 
 
 def test_approval_removes_the_draft_watermark(demo, settings, store, tmp_path):
@@ -232,3 +206,11 @@ def test_short_passage_labels_map_back_and_form_names_are_not_figures():
     provider = ScriptedProvider(lambda *a: tool_turn(("submit_section", {"paragraphs": [para]})))
     paras, notes = draft_topic([p], TOPICS["business"], "Demo", provider)
     assert not notes and paras[0].passage_ids == [p.id]
+
+
+def test_a_research_checkpoint_from_an_older_schema_is_ignored(demo, store):
+    run, _ = demo
+    with store.tx() as c:
+        c.execute("INSERT OR REPLACE INTO checkpoints VALUES (?,?,?,?)",
+                  (run.id, "research", "2026-01-01", '{"recommendation": {"rating": "SELL"}}'))
+    assert load_results(store, run.id)["research"] is None
