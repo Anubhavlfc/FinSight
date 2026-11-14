@@ -13,7 +13,7 @@ type Filter = "all" | "awaiting" | "approved" | "running";
 const FILTERS: [Filter, string][] = [["all", "All"], ["awaiting", "Awaiting review"], ["approved", "Approved"], ["running", "In progress"]];
 
 function matches(run: RunSummary, f: Filter): boolean {
-  if (f === "awaiting") return run.review.state === "awaiting_review" || run.review.state === "needs_attention";
+  if (f === "awaiting") return run.review.state === "awaiting_review" || run.review.state === "needs_attention" || run.review.state === "changes_requested";
   if (f === "approved") return run.review.state === "approved";
   if (f === "running") return run.phase === "queued" || run.phase === "running";
   return true;

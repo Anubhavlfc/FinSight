@@ -105,6 +105,7 @@ export function ReviewBadge({ review }: { review: ReviewStatus }) {
     approved: { tone: "teal", icon: "shield" },
     awaiting_review: { tone: "amber", icon: "clock" },
     needs_attention: { tone: "coral", icon: "alert" },
+    changes_requested: { tone: "amber", icon: "alert" },
     not_reviewed: { tone: "neutral", icon: "dash" },
   };
   const m = map[review.state];

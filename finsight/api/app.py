@@ -49,6 +49,7 @@ from finsight.errors import (
 )
 from finsight.llm.factory import has_anthropic_credentials
 from finsight.orchestrator import Orchestrator, load_results
+from finsight.review.human import ReviewDecisionError
 from finsight.sec.client import SecHttpClient
 from finsight.sec.sources import DataSource, FixtureSource, HttpCache, LiveSecSource
 from finsight.storage import Store
@@ -440,20 +441,29 @@ def create_app(settings: Settings | None = None, api: ApiSettings | None = None,
         svc.jobs.submit(run.id, resume=True, identifier=identifier)
         return s.RunCreated(run_id=run.id, reused=True)
 
-    @app.post("/api/runs/{run_id}/approve", response_model=s.RunStatus, tags=["runs"],
-              responses=_errors(401, 404, 409))
-    def approve_run(run_id: str, body: s.ApproveRequest, x_reviewer_token: str | None = Header(default=None)):
+    @app.post("/api/runs/{run_id}/review", response_model=s.RunStatus, tags=["runs"],
+              responses=_errors(401, 404, 409, 422))
+    def review_run(run_id: str, body: s.ReviewRequest, x_reviewer_token: str | None = Header(default=None)):
         if api.reviewer_token and not hmac.compare_digest(x_reviewer_token or "", api.reviewer_token):
-            raise ApiError(401, "reviewer_token_required", "Approving a report needs the reviewer token.",
+            raise ApiError(401, "reviewer_token_required", "Reviewing a report needs the reviewer token.",
                            ["Enter the token set as FINSIGHT_REVIEWER_TOKEN on the server."])
+        verdicts = {"confirmed": "Confirmed", "disputed": "Disputed", "not_checked": "Not checked"}
+        checks = {"findings": {k: verdicts[v] for k, v in body.findings.items()},
+                  "figures_checked": body.figures_checked, "limitations_read": body.limitations_read}
         with open_store() as st:
             run = get_run(run_id, st)
             _require_idle(run)
             try:
-                run = Orchestrator(settings, st, svc.jobs.source_factory).approve(run.id, body.note)
+                run = Orchestrator(settings, st, svc.jobs.source_factory).record_review(
+                    run.id, body.decision, body.reviewer, body.note, checks)
             except InvalidTransitionError:
                 raise ApiError(409, "not_reviewable",
-                               f"Only a finished analysis can be approved (this one is {run.state.value}).") from None
+                               f"Only a finished, unapproved analysis can be reviewed (this one is "
+                               f"{run.state.value}).") from None
+            except ReviewDecisionError as exc:
+                raise ApiError(422, "review_incomplete", str(exc),
+                               ["Confirm or dispute each investigated change, tick both checks to approve, "
+                                "or request changes with a note."]) from None
             return build_status(run, load_results(st, run.id), False, settings)
 
     # ---- unknown API paths, then the built frontend --------------------------------------

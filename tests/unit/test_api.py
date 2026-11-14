@@ -255,7 +255,8 @@ def test_results_are_refused_until_the_run_has_them(settings):
         assert status["is_active"] is True and status["current_activity"]
         assert client.get(f"/api/runs/{run_id}/result").status_code == 409
         assert client.get(f"/api/runs/{run_id}/files/report.html").status_code == 409
-        assert client.post(f"/api/runs/{run_id}/approve", json={}).status_code == 409
+        assert client.post(f"/api/runs/{run_id}/review",
+                           json={"decision": "approved", "reviewer": "Dana"}).status_code == 409
         gate.set()
         assert wait_for(client, run_id)["phase"] == "ready_for_review"
 
@@ -332,25 +333,64 @@ def test_run_left_unfinished_by_a_restart_is_reported_and_can_be_resumed(setting
 
 def test_approval_is_an_explicit_action_and_can_require_a_token(settings):
     api = ApiSettings(web_dist=None, reviewer_token="s3cret-review")
+    token = {"X-Reviewer-Token": "s3cret-review"}
     with make_client(settings, api=api) as client:
         assert client.get("/api/health").json()["approval"] == "token_required"
         run_id = start_demo(client)
         assert wait_for(client, run_id)["review"]["state"] == "awaiting_review"
-        denied = client.post(f"/api/runs/{run_id}/approve", json={"note": "ok"})
+        change_ids = [c["id"] for c in client.get(f"/api/runs/{run_id}/result").json()["changes"] if c["finding"]]
+        assert change_ids
+        approve = {"decision": "approved", "reviewer": "Dana", "note": "Checked the cash flow figures.",
+                   "findings": {c: "confirmed" for c in change_ids},
+                   "figures_checked": True, "limitations_read": True}
+        denied = client.post(f"/api/runs/{run_id}/review", json=approve)
         assert denied.status_code == 401 and denied.json()["code"] == "reviewer_token_required"
-        wrong = client.post(f"/api/runs/{run_id}/approve", json={}, headers={"X-Reviewer-Token": "nope"})
+        wrong = client.post(f"/api/runs/{run_id}/review", json=approve, headers={"X-Reviewer-Token": "nope"})
         assert wrong.status_code == 401
-        ok = client.post(f"/api/runs/{run_id}/approve", json={"note": "Checked the cash flow figures."},
-                         headers={"X-Reviewer-Token": "s3cret-review"})
+        ok = client.post(f"/api/runs/{run_id}/review", json=approve, headers=token)
         assert ok.status_code == 200
         body = ok.json()
         assert body["phase"] == "approved" and body["review"]["state"] == "approved"
         assert body["review"]["approval_note"] == "Checked the cash flow figures." and body["review"]["approved_at"]
+        [h] = body["review"]["history"]
+        assert h["decision"] == "approved" and h["reviewer"] == "Dana" and sorted(h["confirmed"]) == sorted(change_ids)
         summary = client.get("/api/runs").json()["runs"][0]
         assert summary["review"]["state"] == "approved"
         # An approved report stays readable and downloadable without running anything again.
         assert client.get(f"/api/runs/{run_id}/result").status_code == 200
         assert client.get(f"/api/runs/{run_id}/files/report.md").status_code == 200
+        # ...and cannot be reviewed again.
+        assert client.post(f"/api/runs/{run_id}/review", json=approve, headers=token).status_code == 409
+
+
+def test_review_rules_match_the_cli_and_dashboard(client):
+    run_id = start_demo(client)
+    wait_for(client, run_id)
+    change_ids = [c["id"] for c in client.get(f"/api/runs/{run_id}/result").json()["changes"] if c["finding"]]
+    url = f"/api/runs/{run_id}/review"
+
+    # Approval without saying what was checked is refused, with what is missing.
+    r = client.post(url, json={"decision": "approved", "reviewer": "Dana"})
+    assert r.status_code == 422 and r.json()["code"] == "review_incomplete"
+    assert "10-K financial statements" in r.json()["message"]
+    # A disputed change blocks approval.
+    findings = {c: "confirmed" for c in change_ids} | {change_ids[0]: "disputed"}
+    r = client.post(url, json={"decision": "approved", "reviewer": "Dana", "findings": findings,
+                               "figures_checked": True, "limitations_read": True})
+    assert r.status_code == 422 and "disputed" in r.json()["message"]
+    # Unknown change IDs are refused rather than stored.
+    r = client.post(url, json={"decision": "changes_requested", "reviewer": "Dana", "findings": {"x": "disputed"}})
+    assert r.status_code == 422 and "Unknown change" in r.json()["message"]
+    # A change request needs a note or a disputed change.
+    assert client.post(url, json={"decision": "changes_requested", "reviewer": "Dana"}).status_code == 422
+    r = client.post(url, json={"decision": "changes_requested", "reviewer": "Dana",
+                               "findings": {change_ids[0]: "disputed"}, "note": "Quote is from the wrong year"})
+    assert r.status_code == 200
+    review = r.json()["review"]
+    assert r.json()["phase"] == "ready_for_review"
+    assert review["state"] == "changes_requested" and review["label"] == "Changes requested by Dana"
+    assert review["history"][-1]["disputed"] == [change_ids[0]]
+    assert client.get("/api/runs").json()["runs"][0]["review"]["state"] == "changes_requested"
 
 
 def test_archive_lists_runs_newest_first_with_review_state(client):

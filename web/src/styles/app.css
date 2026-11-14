@@ -1483,6 +1483,50 @@ details[open] > summary > svg:first-child {
   gap: var(--s3);
 }
 
+.verdicts {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.verdicts li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.check {
+  display: flex;
+  gap: var(--s2);
+  align-items: flex-start;
+}
+
+.check input {
+  margin-top: 3px;
+}
+
+.review-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+
+.review-history {
+  display: grid;
+  gap: var(--s2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.review-history p {
+  margin: var(--s1) 0 0;
+}
+
 /* metric cards */
 
 .metrics {

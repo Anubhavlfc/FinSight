@@ -94,23 +94,34 @@ def test_unavailable_period_is_refused(svc):
         svc.start_run(svc.profile("DEMO"), 1999, None, use_claude=False)
 
 
+def full_checks(svc: DashboardService, run_id: str) -> dict:
+    ids = [c.id for c in svc.result(run_id).changes if c.finding is not None]
+    return {"findings": {i: "Confirmed" for i in ids}, "figures_checked": True, "limitations_read": True}
+
+
 def test_review_needs_a_name_and_changes_requested_keeps_the_report_unapproved(svc):
     run_id = demo_run(svc)
+    first = next(iter(full_checks(svc, run_id)["findings"]))
     with pytest.raises(DashboardError, match="name"):
         svc.record_review(run_id, "approved", "  ", "", {})
+    with pytest.raises(DashboardError, match="Unknown change"):
+        svc.record_review(run_id, "changes_requested", "Dana", "", {"findings": {"x": "Disputed"}})
     svc.record_review(run_id, "changes_requested", "Dana", "Quote for FY2025 is from the wrong section",
-                      {"findings": {"x": "Disputed"}})
+                      {"findings": {first: "Disputed"}})
     run = svc.load_run(run_id)
     assert run.state == S.READY_FOR_REVIEW
     [entry] = svc.human_reviews(run_id)
     assert entry["decision"] == "changes_requested" and entry["reviewer"] == "Dana"
-    assert entry["checks"]["findings"] == {"x": "Disputed"}
+    assert entry["checks"]["findings"][first] == "Disputed"
+    assert svc.status(run_id).review.state == "changes_requested"
 
 
 def test_approval_is_recorded_once_and_is_final(svc):
     run_id = demo_run(svc)
     svc.record_review(run_id, "changes_requested", "Dana", "first pass", {})
-    svc.record_review(run_id, "approved", "Dana", "checked against the 10-K", {"figures_checked": True})
+    with pytest.raises(DashboardError, match="To approve"):
+        svc.record_review(run_id, "approved", "Dana", "", {"figures_checked": True})
+    svc.record_review(run_id, "approved", "Dana", "checked against the 10-K", full_checks(svc, run_id))
     run = svc.load_run(run_id)
     assert run.state == S.APPROVED
     assert [h["decision"] for h in svc.human_reviews(run_id)] == ["changes_requested", "approved"]

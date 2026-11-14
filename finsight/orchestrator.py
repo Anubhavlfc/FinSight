@@ -58,6 +58,7 @@ from finsight.investigator.stage import FilingTextCheckpoint, run_investigation
 from finsight.llm.factory import make_provider
 from finsight.llm.provider import LLMConfigurationError, LLMProvider, LLMTransientError
 from finsight.metrics import compute_metrics
+from finsight.review.human import DECISIONS, ReviewDecisionError, check_decision, normalize_checks
 from finsight.report.writer import ReportInputs, write_report
 from finsight.review.reviewer import review
 from finsight.planner import PlanningError, build_plan
@@ -144,25 +145,19 @@ class Orchestrator:
         self.store.save_run(run)
         return self._drive(run)
 
-    def approve(self, run_id: str, note: str = "") -> WorkflowRun:
-        run = self.store.load_run(run_id)
-        if run is None:
-            raise KeyError(f"No run {run_id}")
-        transition(run, S.APPROVED, f"approved by analyst{': ' + note if note else ''}")
-        self.store.save_run(run)
-        return run
-
     def record_review(self, run_id: str, decision: str, reviewer: str, note: str = "",
                       checks: dict[str, Any] | None = None) -> WorkflowRun:
         """Record a person's review decision on a finished run.
 
-        ``approved`` moves the run to APPROVED (the only way it gets there). ``changes_requested``
+        The rules in ``finsight/review/human.py`` apply to every front end: approval needs every
+        investigated change confirmed and both checks ticked; a change request needs a note or a
+        disputed change. ``approved`` moves the run to APPROVED. ``changes_requested``
         leaves the state alone and keeps the reviewer's objections on the run, so the report stays
         unapproved and the record of why is not lost. Every decision is appended to
         ``run.stats["human_reviews"]``; nothing is overwritten.
         """
-        if decision not in ("approved", "changes_requested"):
-            raise ValueError(f"Unknown review decision {decision!r}")
+        if decision not in DECISIONS:
+            raise ReviewDecisionError(f"Unknown review decision {decision!r}")
         reviewer = " ".join((reviewer or "").split())
         if not reviewer:
             raise ValueError("A review decision needs the reviewer's name")
@@ -173,8 +168,12 @@ class Orchestrator:
             raise InvalidTransitionError(
                 f"Only a finished, unapproved analysis can be reviewed (this one is {run.state.value})")
         note = " ".join((note or "").split())
+        inv = self.store.load_checkpoint(run_id, "investigation", InvestigationResult)
+        finding_ids = [f.change_flag_id for f in inv.findings] if inv else []
+        checks = normalize_checks(checks, finding_ids)
+        check_decision(decision, note, checks)
         entry = {"decision": decision, "reviewer": reviewer, "note": note, "at": utcnow().isoformat(),
-                 "checks": checks or {}}
+                 "checks": checks}
         run.stats.setdefault("human_reviews", []).append(entry)
         if decision == "approved":
             transition(run, S.APPROVED, f"approved by analyst {reviewer}{': ' + note if note else ''}")

@@ -16,6 +16,7 @@ export type RunResult = S["RunResult"];
 export type StageStatus = S["StageStatus"];
 export type ActivityItem = S["ActivityItem"];
 export type ReviewStatus = S["ReviewStatus"];
+export type ReviewRequest = S["ReviewRequest"];
 export type KeyMetric = S["KeyMetric"];
 export type Chart = S["Chart"];
 export type Change = S["Change"];

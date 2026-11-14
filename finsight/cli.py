@@ -7,7 +7,10 @@
     finsight analyze MSFT --no-investigate     # Stage 1 only: data pipeline, no report
     finsight resume <run_id> [--company CIK]   # continue an interrupted / failed / needs-input run
     finsight show <run_id>
-    finsight approve <run_id> --note "checked"
+    finsight review <run_id>                   # the changes to check and the review history
+    finsight approve <run_id> --reviewer "Dana Lee" --confirm-all --figures-checked --limitations-read
+    finsight request-changes <run_id> --reviewer "Dana Lee" --dispute <change id> --note "wrong quote"
+    finsight evaluate <run_id>                 # agentic findings vs a single-prompt baseline (needs Claude)
     finsight runs
 """
 
@@ -24,7 +27,9 @@ import pandas as pd
 from finsight.config import Settings, load_settings, sec_user_agent
 from finsight.contracts import AnalysisRequest, RunState, Severity, WorkflowRun
 from finsight.export import presentation_tables, write_outputs
+from finsight.errors import InvalidTransitionError
 from finsight.orchestrator import Orchestrator, load_results
+from finsight.review.human import CONFIRMED, DISPUTED, ReviewDecisionError
 from finsight.sec.client import SecHttpClient
 from finsight.sec.sources import FixtureSource, HttpCache, LiveSecSource
 from finsight.storage import Store
@@ -117,11 +122,97 @@ def _print_run(run: WorkflowRun, store: Store, settings: Settings, out_root: Pat
         files = write_outputs(out, run, results)
         print(f"\nExports written to {out}/ ({', '.join(p.name for p in files)})")
     if run.state == RunState.READY_FOR_REVIEW:
-        print("\nREADY FOR REVIEW (not approved). Approve with: finsight approve " + run.id)
+        print(f"\nREADY FOR REVIEW (not approved). See what to check with: finsight review {run.id}")
     elif run.state == RunState.PARTIAL:
         print("\nPARTIAL: blocking issues above make some metrics unavailable. Nothing was estimated.")
     return 0 if run.state in (RunState.READY_FOR_REVIEW, RunState.PARTIAL, RunState.APPROVED) else (
         3 if run.state == RunState.NEEDS_INPUT else 2)
+
+
+def _investigated_changes(store: Store, run_id: str) -> list[tuple[str, str]]:
+    """(change flag id, one-line description) for every change with a finding, in rank order."""
+    results = load_results(store, run_id)
+    inv, analysis = results.get("investigation"), results.get("analysis")
+    if not inv:
+        return []
+    flags = {f.id: f for f in (analysis.changes if analysis else [])}
+    out = []
+    for f in inv.findings:
+        flag = flags.get(f.change_flag_id)
+        out.append((f.change_flag_id, (flag.description if flag else f.calculated_observation)
+                    + f"  [evidence: {f.evidence_status.value}]"))
+    return out
+
+
+def _print_review(store: Store, run_id: str) -> int:
+    run = store.load_run(run_id)
+    if run is None:
+        print(f"No run {run_id}", file=sys.stderr)
+        return 1
+    print(f"Run {run.id}  state={run.state.value}")
+    changes = _investigated_changes(store, run_id)
+    if changes:
+        print("\nInvestigated changes. Check each explanation against its quoted 10-K passages:")
+        for cid, text in changes:
+            print(f"  {cid}\n      {text}")
+    history = run.stats.get("human_reviews") or []
+    if history:
+        print("\nReview history:")
+        for h in history:
+            disputed = [k for k, v in (h.get("checks") or {}).get("findings", {}).items() if v == DISPUTED]
+            print(f"  {h['at'][:16].replace('T', ' ')} UTC  {h['decision']} by {h['reviewer']}"
+                  + (f": {h['note']}" if h.get("note") else "")
+                  + (f"  (disputed: {', '.join(disputed)})" if disputed else ""))
+    if run.state in (RunState.READY_FOR_REVIEW, RunState.PARTIAL):
+        print("\nTo approve:  finsight approve " + run.id + ' --reviewer "<your name>" --confirm-all '
+              "--figures-checked --limitations-read [--note ...]")
+        print("To object:   finsight request-changes " + run.id + ' --reviewer "<your name>" '
+              '[--dispute <change id> ...] --note "<what is wrong>"')
+    return 0
+
+
+def _record_decision(orch: Orchestrator, store: Store, args: argparse.Namespace) -> int:
+    decision = "approved" if args.cmd == "approve" else "changes_requested"
+    ids = [cid for cid, _ in _investigated_changes(store, args.run_id)]
+    confirmed = ids if getattr(args, "confirm_all", False) else args.confirm
+    findings = {cid: CONFIRMED for cid in confirmed}
+    findings.update({cid: DISPUTED for cid in args.dispute})
+    checks = {"findings": findings, "figures_checked": args.figures_checked,
+              "limitations_read": args.limitations_read}
+    try:
+        run = orch.record_review(args.run_id, decision, args.reviewer, args.note, checks)
+    except (ReviewDecisionError, InvalidTransitionError) as exc:
+        print(f"Not recorded. {exc}", file=sys.stderr)
+        return 2
+    label = "approved" if decision == "approved" else "changes requested; the report stays unapproved"
+    print(f"Run {run.id}: {label} (state={run.state.value})")
+    return 0
+
+
+def _evaluate(settings: Settings, store: Store, args: argparse.Namespace) -> int:
+    from finsight.config import llm_model
+    from finsight.evaluation.compare import evaluate, to_markdown, write
+    from finsight.llm.factory import has_anthropic_credentials
+    from finsight.llm.provider import AnthropicProvider, LLMError
+
+    if store.load_run(args.run_id) is None:
+        print(f"No run {args.run_id}", file=sys.stderr)
+        return 1
+    if not has_anthropic_credentials():
+        print("The baseline is a single Claude call, so it needs ANTHROPIC_API_KEY. Comparing against the "
+              "rule-based stub would measure nothing.", file=sys.stderr)
+        return 2
+    provider = AnthropicProvider(settings.llm, llm_model(settings))
+    try:
+        ev = evaluate(load_results(store, args.run_id), provider, per_flag=args.excerpts,
+                      min_quote_chars=settings.investigation.min_quote_chars)
+    except (ValueError, LLMError) as exc:
+        print(f"Evaluation failed: {exc}", file=sys.stderr)
+        return 2
+    print(to_markdown(ev))
+    files = write(ev, (args.out or settings.output_dir) / args.run_id)
+    print(f"Written: {', '.join(str(f) for f in files)}")
+    return 0
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -155,9 +246,31 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("run_id")
     s.add_argument("--export", action="store_true")
 
-    ap = sub.add_parser("approve", help="Mark a reviewed run as approved")
-    ap.add_argument("run_id")
-    ap.add_argument("--note", default="")
+    rv = sub.add_parser("review", help="Show the investigated changes to check and the review history")
+    rv.add_argument("run_id")
+
+    def decision_parser(name: str, help_: str) -> argparse.ArgumentParser:
+        d = sub.add_parser(name, help=help_)
+        d.add_argument("run_id")
+        d.add_argument("--reviewer", required=True, help="Your name; recorded with the decision")
+        d.add_argument("--note", default="", help="What you checked, or what needs to change")
+        d.add_argument("--confirm", nargs="+", default=[], metavar="CHANGE_ID",
+                       help="Changes whose explanation you checked against the quoted passages")
+        d.add_argument("--dispute", nargs="+", default=[], metavar="CHANGE_ID", help="Changes that are wrong")
+        d.add_argument("--figures-checked", action="store_true",
+                       help="You compared the key figures with the 10-K financial statements")
+        d.add_argument("--limitations-read", action="store_true",
+                       help="You read the data-quality issues and limitations")
+        return d
+
+    ap = decision_parser("approve", "Approve a reviewed report (needs every change confirmed and both checks)")
+    ap.add_argument("--confirm-all", action="store_true", help="Confirm every investigated change")
+    decision_parser("request-changes", "Record what is wrong; the report stays unapproved")
+
+    ev = sub.add_parser("evaluate", help="Compare a run's agentic findings with a single-prompt baseline "
+                                         "(one Claude call; needs ANTHROPIC_API_KEY)")
+    ev.add_argument("run_id")
+    ev.add_argument("--excerpts", type=int, default=6, help="Retrieved 10-K excerpts per change (default 6)")
 
     sub.add_parser("runs", help="List recent runs")
     return p
@@ -187,10 +300,12 @@ def main(argv: list[str] | None = None) -> int:
                 print(f"No run {args.run_id}", file=sys.stderr)
                 return 1
             return _print_run(run, store, settings, args.out, write=args.export)
-        if args.cmd == "approve":
-            run = orch.approve(args.run_id, args.note)
-            print(f"Run {run.id} is now {run.state.value}")
-            return 0
+        if args.cmd == "review":
+            return _print_review(store, args.run_id)
+        if args.cmd in ("approve", "request-changes"):
+            return _record_decision(orch, store, args)
+        if args.cmd == "evaluate":
+            return _evaluate(settings, store, args)
         if args.cmd == "runs":
             for row in store.list_runs():
                 print("  ".join(str(x) for x in row))

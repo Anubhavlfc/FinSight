@@ -205,10 +205,29 @@ test.describe("reports", () => {
     const runId = await startDemoRun(page);
     const review = page.locator("section").filter({ has: page.getByRole("heading", { name: "Report review" }) }).first();
     await expect(review).toContainText("Awaiting analyst review");
+    const approve = review.getByRole("button", { name: "Approve report" });
+    const verdicts = review.getByRole("group", { name: /Verdict for change/ });
+
+    // A dispute is recorded and keeps the report unapproved.
+    await review.getByLabel("Your name").fill("Dana Lee");
+    await verdicts.first().getByRole("button", { name: "Dispute" }).click();
+    await review.getByLabel(/Review note/).fill("The FY2025 quote is from the wrong section.");
+    await expect(approve).toBeDisabled();
+    await review.getByRole("button", { name: "Request changes" }).click();
+    await expect(review).toContainText("Changes requested by Dana Lee");
+    await expect(review).toContainText("The FY2025 quote is from the wrong section.");
+
+    // Approval needs every change confirmed and both checks.
+    const count = await verdicts.count();
+    for (let i = 0; i < count; i++) await verdicts.nth(i).getByRole("button", { name: "Confirm" }).click();
+    await expect(approve).toBeDisabled();
+    await review.getByLabel(/compared the key figures/).check();
+    await review.getByLabel(/read the data quality issues/).check();
     await review.getByLabel(/Review note/).fill("Checked revenue and cash flow against the 10-K.");
-    await review.getByRole("button", { name: "Mark as approved" }).click();
-    await expect(review).toContainText("Approved");
+    await approve.click();
+    await expect(review).toContainText("Approved by analyst");
     await expect(review).toContainText("Checked revenue and cash flow against the 10-K.");
+    await expect(approve).toHaveCount(0);
 
     await page.goto("/app/reports");
     const row = page.getByRole("row").filter({ has: page.locator(`a[href$="${runId}"]`) });

@@ -8,6 +8,7 @@ import type {
   RunCreated,
   RunList,
   RunResult,
+  ReviewRequest,
   RunStatus,
   SearchResponse,
 } from "./types";
@@ -107,8 +108,8 @@ export const api = {
     request<Diagnostics>(`/api/runs/${encodeURIComponent(id)}/diagnostics`, {}, signal),
   resume: (id: string, company?: string) =>
     post<RunCreated>(`/api/runs/${encodeURIComponent(id)}/resume`, company ? { company } : {}),
-  approve: (id: string, note: string, token?: string) =>
-    post<RunStatus>(`/api/runs/${encodeURIComponent(id)}/approve`, { note }, token ? { "X-Reviewer-Token": token } : undefined),
+  review: (id: string, body: ReviewRequest, token?: string) =>
+    post<RunStatus>(`/api/runs/${encodeURIComponent(id)}/review`, body, token ? { "X-Reviewer-Token": token } : undefined),
   fileUrl: (id: string, name: string, inline = false) =>
     `${API_BASE}/api/runs/${encodeURIComponent(id)}/files/${name.split("/").map(encodeURIComponent).join("/")}${inline ? "?inline=true" : ""}`,
 };

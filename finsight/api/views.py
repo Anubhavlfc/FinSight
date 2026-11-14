@@ -116,16 +116,31 @@ def error_next_steps(message: str, retryable: bool) -> list[str]:
     return []
 
 
+def human_reviews(run: WorkflowRun) -> list[s.HumanReview]:
+    out = []
+    for h in run.stats.get("human_reviews") or []:
+        findings = (h.get("checks") or {}).get("findings") or {}
+        out.append(s.HumanReview(
+            decision=h["decision"], reviewer=h["reviewer"], note=h.get("note") or "", at=h["at"],
+            disputed=[k for k, v in findings.items() if v == "Disputed"],
+            confirmed=[k for k, v in findings.items() if v == "Confirmed"]))
+    return out
+
+
 def review_status(run: WorkflowRun) -> s.ReviewStatus:
     rv = run.stats.get("review") or {}
+    history = human_reviews(run)
     base = dict(passed=rv.get("passed"), revision_cycles=int(rv.get("revision_cycles") or 0),
-                unresolved_defects=int(rv.get("unresolved_defects") or 0))
+                unresolved_defects=int(rv.get("unresolved_defects") or 0), history=history)
     if run.state == S.APPROVED:
         t = next((t for t in reversed(run.history) if t.to_state == S.APPROVED), None)
         note = t.reason.split(":", 1)[1].strip() if t and ":" in t.reason else None
         return s.ReviewStatus(state="approved", label="Approved by analyst", approved_at=t.at if t else None,
                               approval_note=note, **base)
     if run.state in (S.READY_FOR_REVIEW, S.PARTIAL):
+        if history and history[-1].decision == "changes_requested":
+            return s.ReviewStatus(state="changes_requested",
+                                  label=f"Changes requested by {history[-1].reviewer}", **base)
         if rv.get("needs_analyst_attention"):
             return s.ReviewStatus(state="needs_attention", label="Needs analyst attention", **base)
         return s.ReviewStatus(state="awaiting_review", label="Awaiting analyst review", **base)

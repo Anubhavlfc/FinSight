@@ -18,7 +18,9 @@ StageKey = Literal["planning", "collecting", "validating", "calculating", "inves
 StageState = Literal["pending", "active", "done", "failed", "skipped"]
 Phase = Literal["queued", "running", "ready_for_review", "partial", "approved", "failed", "needs_input",
                 "interrupted"]
-ReviewState = Literal["not_reviewed", "awaiting_review", "needs_attention", "approved"]
+ReviewState = Literal["not_reviewed", "awaiting_review", "needs_attention", "changes_requested", "approved"]
+ReviewDecision = Literal["approved", "changes_requested"]
+FindingVerdict = Literal["confirmed", "disputed", "not_checked"]
 EvidenceLabel = Literal["supported", "partially_supported", "unsupported", "not_investigated"]
 
 
@@ -148,9 +150,18 @@ class ResumeRequest(BaseModel):
     company: str | None = Field(default=None, pattern=r"^\d{1,10}$", description="CIK chosen for a needs-input run")
 
 
-class ApproveRequest(BaseModel):
+class ReviewRequest(BaseModel):
+    """A person's decision on a finished report. The same rules apply as in the CLI and dashboard:
+    approval needs every investigated change confirmed and both checks; a change request needs a
+    note or a disputed change."""
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
-    note: str = Field(default="", max_length=300)
+    decision: ReviewDecision
+    reviewer: str = Field(min_length=1, max_length=80, description="The reviewer's name, recorded with the decision")
+    note: str = Field(default="", max_length=1000)
+    findings: dict[str, FindingVerdict] = Field(
+        default_factory=dict, max_length=50, description="Change ID -> verdict, for each investigated change")
+    figures_checked: bool = Field(default=False, description="Compared the key figures with the 10-K statements")
+    limitations_read: bool = Field(default=False, description="Read the data-quality issues and limitations")
 
 
 class CompanyRef(_Out):
@@ -194,6 +205,15 @@ class NeedsInput(_Out):
     candidates: list[Candidate]
 
 
+class HumanReview(_Out):
+    decision: ReviewDecision
+    reviewer: str
+    note: str
+    at: datetime
+    disputed: list[str] = Field(default_factory=list, description="Change IDs the reviewer disputed")
+    confirmed: list[str] = Field(default_factory=list, description="Change IDs the reviewer confirmed")
+
+
 class ReviewStatus(_Out):
     state: ReviewState
     label: str
@@ -202,6 +222,8 @@ class ReviewStatus(_Out):
     unresolved_defects: int = 0
     approved_at: datetime | None = None
     approval_note: str | None = None
+    history: list[HumanReview] = Field(default_factory=list, description="Every decision, oldest first")
+
 
 
 class InvestigatorUsed(_Out):

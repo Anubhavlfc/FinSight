@@ -181,6 +181,17 @@ required_for = []
 optional = true
 missing_severity = "info"
 
+# Short-term borrowings other than commercial paper (bank lines, notes). In the us-gaap
+# taxonomy this is a component of ShortTermBorrowings, so the debt metric adds it only when
+# ShortTermBorrowings is not reported (Coca-Cola: "Loans and notes payable" = commercial
+# paper + other short-term borrowings).
+[fields.other_short_term_borrowings]
+period_type = "instant"
+tags = ["us-gaap:OtherShortTermBorrowings"]
+required_for = []
+optional = true
+missing_severity = "info"
+
 # ---- Operating expense components (Stage 2) ---------------------------------------
 # Used only by the investigator's compare_financial_components tool to break an
 # operating-margin change into expense lines. Many filers combine or omit these

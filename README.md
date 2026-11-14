@@ -66,8 +66,12 @@ cd web && npm run dev             # terminal 2, http://localhost:5173
   with evidence status and source passages, a per-area interpretation, sources and
   limitations, and downloads. Calculated observations, management explanations and AI
   interpretation are labelled separately.
+* **Report review**: the reviewer confirms or disputes each investigated change, ticks that they
+  compared the figures with the 10-K statements and read the limitations, and gives their name.
+  **Approve report** is enabled only when every change is confirmed; **Request changes** records
+  what is wrong and keeps the report unapproved. Every decision is listed with who made it and when.
 * **Reports** (`/app/reports`): every stored analysis with run status and review status
-  (awaiting review or approved), opened without rerunning.
+  (awaiting review, changes requested or approved), opened without rerunning.
 * **Sample analyses** (`/app/sample/demo`, `/app/sample/nvda`): bundled static copies of real
   pipeline runs. One is the synthetic company, one is a cached run on real filings. Both are
   labelled, and both work when the backend is down.
@@ -196,10 +200,17 @@ finsight runs                                 # recent runs
 finsight show <run_id> [--export]
 finsight resume <run_id>                      # continue an interrupted or failed run
 finsight resume <run_id> --company 9999901    # answer a "which company?" question
-finsight approve <run_id> --note "checked"    # READY_FOR_REVIEW -> APPROVED (always explicit)
+finsight review <run_id>                      # the investigated changes to check, and past decisions
+finsight approve <run_id> --reviewer "Dana Lee" --confirm-all --figures-checked --limitations-read --note "checked"
+finsight request-changes <run_id> --reviewer "Dana Lee" --dispute <change id> --note "quote is from FY2024"
 ```
 
-Exit codes: `0` ready for review / partial / approved, `2` failed, `3` needs input.
+Approval is always explicit and follows the same rules in the CLI, the web app and the dashboard
+(`finsight/review/human.py`): every investigated change confirmed, both checks given, and the
+reviewer's name. A change request needs a note or a disputed change. Every decision is appended to
+`run.stats.human_reviews`.
+
+Exit codes: `0` ready for review / partial / approved, `2` failed or a review decision refused, `3` needs input.
 
 ## Configuration
 
@@ -260,7 +271,11 @@ FINSIGHT_RUN_LIVE=1 FINSIGHT_RUN_LLM=1 ANTHROPIC_API_KEY=... pytest -m llm   # r
 ```
 
 The offline tests check the demo pipeline against values worked out by hand from
-`scripts/build_demo_fixture.py`. They also cover restatements, a 10-K/A, a quarterly value
+`scripts/build_demo_fixture.py`. **Golden tests** (`tests/unit/test_golden_filings.py`) run the
+pipeline on real XBRL recorded from SEC EDGAR for Microsoft, Apple, Walmart and Coca-Cola
+(`fixtures/golden/`) and compare every reported figure, margin, ratio, growth rate, free cash
+flow and interest-bearing debt total with the numbers printed in each company's 10-K, typed by
+hand into `tests/golden/expected.toml`. They also cover restatements, a 10-K/A, a quarterly value
 labelled as fiscal-year, duplicates and competing tags, sign handling, missing data,
 balance-check failures, zero and negative denominators, retry and pacing behaviour, cache
 reuse, bounded recovery, and resuming after a simulated crash. Stage 2 tests cover 10-K
@@ -300,7 +315,8 @@ finsight/
   investigator/    typed tools, bounded loop, investigation stage
   llm/             provider interface, Anthropic provider, offline stub, provider choice
   report/          report writer (Markdown + HTML), chart specs and rendering
-  review/          deterministic + LLM reviewer
+  review/          deterministic + LLM reviewer; human.py holds the human review rules
+  evaluation/      single-prompt baseline and its comparison with the agentic findings
   presentation.py  number formatting and the parser the reviewer checks it with
   cli.py
   api/             FastAPI layer: schemas (the typed contract), views, background jobs, limits
@@ -319,7 +335,8 @@ docs/              architecture, deployment, OpenAPI schema, screenshots
 2. **Stage 2 (this release):** filing-text retrieval, investigator with typed tools and step
    budgets, evidence-backed findings, report (Markdown/HTML) with charts and citations,
    reviewer with at most two revision cycles, Anthropic SDK behind a provider interface.
-   Still to do: the single-prompt baseline for comparison.
+   `finsight evaluate <run_id>` compares the agentic findings with a single-prompt baseline
+   (see [docs/evaluation.md](docs/evaluation.md)).
 3. **Stage 3 (this release):** web app: FastAPI layer, React workspace, progress, results
    dashboard, report archive, downloads, bundled samples, container image.
 4. **Later:** PDF export, sign-in and per-user archives, a scheduled check for new 10-K

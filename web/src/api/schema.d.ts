@@ -90,23 +90,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/runs/{run_id}/approve": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        /** Approve Run */
-        post: operations["approve_run_api_runs__run_id__approve_post"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/runs/{run_id}/diagnostics": {
         parameters: {
             query?: never;
@@ -175,6 +158,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/runs/{run_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Review Run */
+        post: operations["review_run_api_runs__run_id__review_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -195,14 +195,6 @@ export interface components {
             message: string;
             /** Stage */
             stage: ("planning" | "collecting" | "validating" | "calculating" | "investigating" | "writing" | "reviewing" | "ready") | null;
-        };
-        /** ApproveRequest */
-        ApproveRequest: {
-            /**
-             * Note
-             * @default
-             */
-            note: string;
         };
         /** Availability */
         Availability: {
@@ -569,6 +561,33 @@ export interface components {
             /** Version */
             version: string;
         };
+        /** HumanReview */
+        HumanReview: {
+            /**
+             * At
+             * Format: date-time
+             */
+            at: string;
+            /**
+             * Confirmed
+             * @description Change IDs the reviewer confirmed
+             */
+            confirmed: string[];
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approved" | "changes_requested";
+            /**
+             * Disputed
+             * @description Change IDs the reviewer disputed
+             */
+            disputed: string[];
+            /** Note */
+            note: string;
+            /** Reviewer */
+            reviewer: string;
+        };
         /** InterpretationArea */
         InterpretationArea: {
             /** Available */
@@ -840,12 +859,59 @@ export interface components {
             /** Revision Cycles */
             revision_cycles: number;
         };
+        /**
+         * ReviewRequest
+         * @description A person's decision on a finished report. The same rules apply as in the CLI and dashboard:
+         *     approval needs every investigated change confirmed and both checks; a change request needs a
+         *     note or a disputed change.
+         */
+        ReviewRequest: {
+            /**
+             * Decision
+             * @enum {string}
+             */
+            decision: "approved" | "changes_requested";
+            /**
+             * Figures Checked
+             * @description Compared the key figures with the 10-K statements
+             * @default false
+             */
+            figures_checked: boolean;
+            /**
+             * Findings
+             * @description Change ID -> verdict, for each investigated change
+             */
+            findings?: {
+                [key: string]: "confirmed" | "disputed" | "not_checked";
+            };
+            /**
+             * Limitations Read
+             * @description Read the data-quality issues and limitations
+             * @default false
+             */
+            limitations_read: boolean;
+            /**
+             * Note
+             * @default
+             */
+            note: string;
+            /**
+             * Reviewer
+             * @description The reviewer's name, recorded with the decision
+             */
+            reviewer: string;
+        };
         /** ReviewStatus */
         ReviewStatus: {
             /** Approval Note */
             approval_note: string | null;
             /** Approved At */
             approved_at: string | null;
+            /**
+             * History
+             * @description Every decision, oldest first
+             */
+            history: components["schemas"]["HumanReview"][];
             /** Label */
             label: string;
             /** Passed */
@@ -859,7 +925,7 @@ export interface components {
              * State
              * @enum {string}
              */
-            state: "not_reviewed" | "awaiting_review" | "needs_attention" | "approved";
+            state: "not_reviewed" | "awaiting_review" | "needs_attention" | "changes_requested" | "approved";
             /**
              * Unresolved Defects
              * @default 0
@@ -1404,70 +1470,6 @@ export interface operations {
             };
         };
     };
-    approve_run_api_runs__run_id__approve_post: {
-        parameters: {
-            query?: never;
-            header?: {
-                "x-reviewer-token"?: string | null;
-            };
-            path: {
-                run_id: string;
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["ApproveRequest"];
-            };
-        };
-        responses: {
-            /** @description Successful Response */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["RunStatus"];
-                };
-            };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Not Found */
-            404: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Conflict */
-            409: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ErrorBody"];
-                };
-            };
-            /** @description Validation Error */
-            422: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
-                };
-            };
-        };
-    };
     run_diagnostics_api_runs__run_id__diagnostics_get: {
         parameters: {
             query?: never;
@@ -1651,6 +1653,70 @@ export interface operations {
             };
             /** @description Too Many Requests */
             429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+        };
+    };
+    review_run_api_runs__run_id__review_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                "x-reviewer-token"?: string | null;
+            };
+            path: {
+                run_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RunStatus"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorBody"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -107,6 +107,12 @@ dimensions, i.e. consolidated totals. Segment data needs the filing itself (Stag
 **Signs.** Capital expenditure is expressed as a positive outflow. A negative reported
 value is flipped and disclosed with a `sign_normalized` warning.
 
+**Derived gross profit and total revenue.** When gross profit is derived as revenue − cost of
+revenue and total revenue (`Revenues`) is larger than contract revenue
+(`RevenueFromContractWithCustomer…`), a `derived_on_total_revenue` warning gives the
+difference. Walmart is the case: its gross profit is net sales − cost of sales, so FinSight's
+derived figure is higher by membership and other income, and the margins are not comparable.
+
 **Missing data.** Alternative tags are tried first, then configured derivations (gross
 profit = revenue − cost of revenue; total liabilities = liabilities and equity − total
 equity; both marked `DERIVED` with input fact IDs). A required field
@@ -140,7 +146,8 @@ See the docstring in `finsight/metrics.py` for formulas. Key choices:
   calculated, non-GAAP measure and labelled as such.
 * **Interest-bearing debt** = long-term debt including current maturities
   (`LongTermDebtNoncurrent` + `LongTermDebtCurrent`, the balance-sheet carrying amounts,
-  else `LongTermDebt`) + commercial paper + short-term borrowings. Leases are excluded,
+  else `LongTermDebt`) + commercial paper + short-term borrowings (`ShortTermBorrowings`, else
+  `OtherShortTermBorrowings`, which the taxonomy defines as a component of it). Leases are excluded,
   except at filers that tag debt and finance leases together
   (`LongTermDebtAndCapitalLeaseObligations*`), where the metric note says so. Total
   liabilities is never substituted. Components that are not reported are named in the
@@ -286,8 +293,14 @@ link all reconnect to the same run.
 | Blocking data issue | Run finishes as `partial`: affected metrics are unavailable with a reason, nothing is estimated |
 | Live SEC access not configured | Health says so; real tickers get `503 live_unavailable`; only the synthetic company runs |
 
-**Review state.** `ready_for_review` and `partial` reports are "awaiting analyst review".
-Approval is a separate `POST …/approve`, optionally protected by `FINSIGHT_REVIEWER_TOKEN`.
+**Review state.** `ready_for_review` and `partial` reports are "awaiting analyst review" until a
+person records a decision with `POST …/review` (optionally protected by
+`FINSIGHT_REVIEWER_TOKEN`). The body carries the reviewer's name, a verdict per investigated change
+(confirmed / disputed / not checked), the two checks and a note. `Orchestrator.record_review`
+applies the rules in `finsight/review/human.py`, which the CLI and the dashboard use too: approval
+needs every change confirmed and both checks; a change request needs a note or a disputed change
+and leaves the run unapproved (review state `changes_requested`). Every decision is kept in
+`run.stats.human_reviews` and returned as `review.history`.
 
 **Safety.** Input is validated by Pydantic models that forbid unknown fields; company
 identifiers and run IDs are pattern-checked. Downloads are restricted to files inside the
@@ -309,7 +322,5 @@ No PDF export: reports download as HTML and Markdown, data as CSV and JSON, char
 
 ### Not yet built
 
-* The single-prompt baseline (validated tables + retrieved excerpts → one report prompt)
-  for measuring what the agentic loop adds. Planned next, once runs with Claude are
-  available to compare.
-* Analyst "request revision" from READY_FOR_REVIEW. The web app offers approval only.
+* Re-running investigation or drafting automatically after a change request. Today the request is
+  recorded for whoever revises the report; the analyst then starts a new run.

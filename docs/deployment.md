@@ -64,7 +64,7 @@ first: the app has no sign-in, and each visitor address may start
 5. Apply. The first build takes a few minutes. Render then shows the service URL
    (`https://<name>.onrender.com`).
 6. Copy the generated `FINSIGHT_REVIEWER_TOKEN` from the service's Environment page. It is
-   what the "Mark as approved" form asks for.
+   what the report review form asks for before it records an approval or a change request.
 7. Verify the deployment before telling anyone about it:
    * `https://<url>/api/health` returns `"status":"ok"` and `"live_data":{"available":true`.
    * The landing page loads, and "Explore sample analysis" opens the sample.

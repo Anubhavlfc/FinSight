@@ -26,7 +26,14 @@ def test_offline_analyze_writes_exports(tmp_path, capsys, monkeypatch):
     assert all(s["is_fixture"] for s in payload["sources"])
 
     run_id = run_dir.name
-    assert main(["--db", str(db), "approve", run_id]) == 0
+    # Approval needs the reviewer to say what they checked.
+    assert main(["--db", str(db), "approve", run_id, "--reviewer", "Dana"]) == 2
+    assert "To approve" in capsys.readouterr().err
+    assert main(["--db", str(db), "review", run_id]) == 0
+    listing = capsys.readouterr().out
+    assert "Investigated changes" in listing and "change:" in listing
+    assert main(["--db", str(db), "approve", run_id, "--reviewer", "Dana", "--confirm-all",
+                 "--figures-checked", "--limitations-read", "--note", "checked"]) == 0
     assert main(["--db", str(db), "show", run_id]) == 0
     assert "state=APPROVED" in capsys.readouterr().out
 
