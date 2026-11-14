@@ -322,8 +322,5 @@ No PDF export: reports download as HTML and Markdown, data as CSV and JSON, char
 
 ### Not yet built
 
-* The single-prompt baseline (validated tables + retrieved excerpts → one report prompt)
-  for measuring what the agentic loop adds. Planned next, once runs with Claude are
-  available to compare.
 * Re-running investigation or drafting automatically after a change request. Today the request is
   recorded for whoever revises the report; the analyst then starts a new run.

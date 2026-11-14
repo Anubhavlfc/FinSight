@@ -10,6 +10,7 @@
     finsight review <run_id>                   # the changes to check and the review history
     finsight approve <run_id> --reviewer "Dana Lee" --confirm-all --figures-checked --limitations-read
     finsight request-changes <run_id> --reviewer "Dana Lee" --dispute <change id> --note "wrong quote"
+    finsight evaluate <run_id>                 # agentic findings vs a single-prompt baseline (needs Claude)
     finsight runs
 """
 
@@ -188,6 +189,32 @@ def _record_decision(orch: Orchestrator, store: Store, args: argparse.Namespace)
     return 0
 
 
+def _evaluate(settings: Settings, store: Store, args: argparse.Namespace) -> int:
+    from finsight.config import llm_model
+    from finsight.evaluation.compare import evaluate, to_markdown, write
+    from finsight.llm.factory import has_anthropic_credentials
+    from finsight.llm.provider import AnthropicProvider, LLMError
+
+    if store.load_run(args.run_id) is None:
+        print(f"No run {args.run_id}", file=sys.stderr)
+        return 1
+    if not has_anthropic_credentials():
+        print("The baseline is a single Claude call, so it needs ANTHROPIC_API_KEY. Comparing against the "
+              "rule-based stub would measure nothing.", file=sys.stderr)
+        return 2
+    provider = AnthropicProvider(settings.llm, llm_model(settings))
+    try:
+        ev = evaluate(load_results(store, args.run_id), provider, per_flag=args.excerpts,
+                      min_quote_chars=settings.investigation.min_quote_chars)
+    except (ValueError, LLMError) as exc:
+        print(f"Evaluation failed: {exc}", file=sys.stderr)
+        return 2
+    print(to_markdown(ev))
+    files = write(ev, (args.out or settings.output_dir) / args.run_id)
+    print(f"Written: {', '.join(str(f) for f in files)}")
+    return 0
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="finsight", description="Financial Analysis Copilot")
     p.add_argument("--db", type=Path, help="SQLite database path")
@@ -240,6 +267,11 @@ def build_parser() -> argparse.ArgumentParser:
     ap.add_argument("--confirm-all", action="store_true", help="Confirm every investigated change")
     decision_parser("request-changes", "Record what is wrong; the report stays unapproved")
 
+    ev = sub.add_parser("evaluate", help="Compare a run's agentic findings with a single-prompt baseline "
+                                         "(one Claude call; needs ANTHROPIC_API_KEY)")
+    ev.add_argument("run_id")
+    ev.add_argument("--excerpts", type=int, default=6, help="Retrieved 10-K excerpts per change (default 6)")
+
     sub.add_parser("runs", help="List recent runs")
     return p
 
@@ -272,6 +304,8 @@ def main(argv: list[str] | None = None) -> int:
             return _print_review(store, args.run_id)
         if args.cmd in ("approve", "request-changes"):
             return _record_decision(orch, store, args)
+        if args.cmd == "evaluate":
+            return _evaluate(settings, store, args)
         if args.cmd == "runs":
             for row in store.list_runs():
                 print("  ".join(str(x) for x in row))

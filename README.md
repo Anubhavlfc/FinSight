@@ -315,7 +315,8 @@ finsight/
   investigator/    typed tools, bounded loop, investigation stage
   llm/             provider interface, Anthropic provider, offline stub, provider choice
   report/          report writer (Markdown + HTML), chart specs and rendering
-  review/          deterministic + LLM reviewer
+  review/          deterministic + LLM reviewer; human.py holds the human review rules
+  evaluation/      single-prompt baseline and its comparison with the agentic findings
   presentation.py  number formatting and the parser the reviewer checks it with
   cli.py
   api/             FastAPI layer: schemas (the typed contract), views, background jobs, limits
@@ -334,7 +335,8 @@ docs/              architecture, deployment, OpenAPI schema, screenshots
 2. **Stage 2 (this release):** filing-text retrieval, investigator with typed tools and step
    budgets, evidence-backed findings, report (Markdown/HTML) with charts and citations,
    reviewer with at most two revision cycles, Anthropic SDK behind a provider interface.
-   Still to do: the single-prompt baseline for comparison.
+   `finsight evaluate <run_id>` compares the agentic findings with a single-prompt baseline
+   (see [docs/evaluation.md](docs/evaluation.md)).
 3. **Stage 3 (this release):** web app: FastAPI layer, React workspace, progress, results
    dashboard, report archive, downloads, bundled samples, container image.
 4. **Later:** PDF export, sign-in and per-user archives, a scheduled check for new 10-K
