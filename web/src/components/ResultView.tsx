@@ -300,23 +300,46 @@ function Downloads({ downloads, source }: { downloads: DownloadInfo[]; source: R
 
 // ---------------------------------------------------------------- review
 
+type Verdict = "confirmed" | "disputed" | "not_checked";
+const VERDICTS: [Verdict, string][] = [["confirmed", "Confirm"], ["disputed", "Dispute"]];
+
 function ReviewPanel({ result, source, onStatus }: { result: RunResult; source: ResultSource; onStatus?: (s: RunStatus) => void }) {
   const { service } = useService();
   const status = result.status;
+  const investigated = result.changes.filter((c) => c.finding);
+  const [verdicts, setVerdicts] = useState<Record<string, Verdict>>({});
+  const [figures, setFigures] = useState(false);
+  const [limits, setLimits] = useState(false);
+  const [reviewer, setReviewer] = useState("");
   const [note, setNote] = useState("");
   const [token, setToken] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<ApiError | null>(null);
-  const canApprove = source.kind === "run" && (status.review.state === "awaiting_review" || status.review.state === "needs_attention");
+  const reviewable = source.kind === "run" && status.review.state !== "approved" && status.review.state !== "not_reviewed";
   const needsToken = service.health?.approval === "token_required";
+  // Bundled samples were saved before review history existed.
+  const history = status.review.history ?? [];
+  const verdictOf = (id: string): Verdict => verdicts[id] ?? "not_checked";
+  const unconfirmed = investigated.filter((c) => verdictOf(c.id) !== "confirmed").length;
+  const disputed = investigated.filter((c) => verdictOf(c.id) === "disputed").length;
+  const missing: string[] = [];
+  if (!reviewer.trim()) missing.push("your name");
+  if (unconfirmed) missing.push(`${unconfirmed} change${unconfirmed === 1 ? "" : "s"} not confirmed`);
+  if (!(figures && limits)) missing.push("both checks");
+  const ready = !busy && service.kind === "online" && !(needsToken && !token.trim());
+  const canApprove = ready && missing.length === 0;
+  const canRequest = ready && !!reviewer.trim() && (disputed > 0 || !!note.trim());
 
-  const approve = () => {
+  const submit = (decision: "approved" | "changes_requested") => {
     if (busy) return;
     setBusy(true);
     setError(null);
     api
-      .approve(status.id, note.trim(), token.trim() || undefined)
-      .then((s) => onStatus?.(s))
+      .review(status.id, {
+        decision, reviewer: reviewer.trim(), note: note.trim(), findings: Object.fromEntries(investigated.map((c) => [c.id, verdictOf(c.id)])),
+        figures_checked: figures, limitations_read: limits,
+      }, token.trim() || undefined)
+      .then((s) => { onStatus?.(s); setNote(""); })
       .catch((err: unknown) => setError(toApiError(err)))
       .finally(() => setBusy(false));
   };
@@ -339,19 +362,61 @@ function ReviewPanel({ result, source, onStatus }: { result: RunResult; source: 
             <ul>{result.review.defects.map((d) => <li key={d}>{d}</li>)}</ul>
           </Notice>
         )}
-        {status.review.state === "approved" && (
-          <p className="approved-line"><Icon name="shield" /> Approved {formatDateTime(status.review.approved_at)}{status.review.approval_note ? `: “${status.review.approval_note}”` : ""}</p>
+        {history.length > 0 && (
+          <ol className="review-history" aria-label="Review decisions">
+            {history.map((h) => (
+              <li key={h.at}>
+                <Badge tone={h.decision === "approved" ? "teal" : "amber"} icon={h.decision === "approved" ? "shield" : "alert"}>
+                  {h.decision === "approved" ? "Approved" : "Changes requested"}
+                </Badge>{" "}
+                by <strong>{h.reviewer}</strong> · {formatDateTime(h.at)}
+                {h.note && <p>“{h.note}”</p>}
+                {h.disputed.length > 0 && (
+                  <p className="muted">Disputed: {h.disputed.map((id) => {
+                    const c = investigated.find((x) => x.id === id);
+                    return c ? `#${c.rank} ${c.metric_label}, ${c.comparison}` : id;
+                  }).join("; ")}</p>
+                )}
+              </li>
+            ))}
+          </ol>
         )}
         {source.kind === "sample" && status.review.state !== "approved" && (
           <p className="muted">This sample was never approved. Approval is an explicit analyst action on a live run.</p>
         )}
-        {canApprove && (
+        {reviewable && (
           <div className="approve">
-            <p className="muted">The automated review does not approve a report. An analyst does, after reading it.</p>
+            <p className="muted">
+              The automated review does not approve a report. A person does, after checking each investigated change against its quoted
+              filing passages. Approval needs every change confirmed; if anything is wrong, request changes and say what.
+            </p>
+            {investigated.length > 0 && (
+              <ul className="verdicts">
+                {investigated.map((c) => (
+                  <li key={c.id}>
+                    <a href={`#change-${c.rank}`}>#{c.rank} {c.metric_label}, {c.comparison}</a>
+                    <div className="seg" role="group" aria-label={`Verdict for change ${c.rank}`}>
+                      {VERDICTS.map(([v, label]) => (
+                        <button key={v} type="button" aria-pressed={verdictOf(c.id) === v}
+                          onClick={() => setVerdicts((m) => ({ ...m, [c.id]: verdictOf(c.id) === v ? "not_checked" : v }))}>
+                          {label}
+                        </button>
+                      ))}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <label className="check"><input type="checkbox" checked={figures} onChange={(e) => setFigures(e.target.checked)} /> I compared the key figures with the financial statements in the 10-K filings</label>
+            <label className="check"><input type="checkbox" checked={limits} onChange={(e) => setLimits(e.target.checked)} /> I read the data quality issues and limitations</label>
             <div className="approve-row">
               <div className="field">
-                <label htmlFor="approve-note">Review note <span className="optional">optional</span></label>
-                <input id="approve-note" className="input" maxLength={300} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What you checked" />
+                <label htmlFor="review-name">Your name</label>
+                <input id="review-name" className="input" maxLength={80} value={reviewer} onChange={(e) => setReviewer(e.target.value)} autoComplete="name" />
+              </div>
+              <div className="field">
+                <label htmlFor="approve-note">Review note</label>
+                <textarea id="approve-note" className="input" maxLength={1000} rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="What you checked, or what needs to change" />
               </div>
               {needsToken && (
                 <div className="field">
@@ -359,11 +424,17 @@ function ReviewPanel({ result, source, onStatus }: { result: RunResult; source: 
                   <input id="approve-token" className="input" type="password" autoComplete="off" value={token} onChange={(e) => setToken(e.target.value)} />
                 </div>
               )}
-              <button type="button" className="btn btn-primary" disabled={busy || service.kind !== "online" || (needsToken && !token.trim())} onClick={approve}>
-                <Icon name="shield" /> {busy ? "Approving…" : "Mark as approved"}
-              </button>
+              <div className="review-actions">
+                <button type="button" className="btn btn-primary" disabled={!canApprove} onClick={() => submit("approved")}>
+                  <Icon name="shield" /> {busy ? "Saving…" : "Approve report"}
+                </button>
+                <button type="button" className="btn" disabled={!canRequest} onClick={() => submit("changes_requested")}>
+                  Request changes
+                </button>
+              </div>
+              {missing.length > 0 && <p className="muted">To approve: {missing.join(", ")}.</p>}
             </div>
-            {error && <ErrorNotice error={error} title="The report was not approved" />}
+            {error && <ErrorNotice error={error} title="The decision was not recorded" />}
           </div>
         )}
       </div>

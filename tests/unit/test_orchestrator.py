@@ -44,7 +44,9 @@ def test_approval_is_a_separate_step(settings, store):
     orch = Orchestrator(settings, store, lambda r: FixtureSource(DEMO_FIXTURES))
     run = orch.start(AnalysisRequest(identifier="DEMO", offline=True, **REQ))
     assert run.state == RunState.READY_FOR_REVIEW
-    assert orch.approve(run.id, "checked").state == RunState.APPROVED
+    flags = [f.change_flag_id for f in load_results(store, run.id)["investigation"].findings]
+    checks = {"findings": {f: "Confirmed" for f in flags}, "figures_checked": True, "limitations_read": True}
+    assert orch.record_review(run.id, "approved", "Dana", "checked", checks).state == RunState.APPROVED
 
 
 class FixtureBackedTransport:

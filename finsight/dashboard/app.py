@@ -187,7 +187,8 @@ def header(status: s.RunStatus) -> None:
     title = f"{c.name} ({c.ticker})" if c and c.ticker else (c.name if c else status.identifier)
     st.title(title)
     color, label = PHASE_BADGE.get(status.phase, ("gray", status.phase))
-    review_color = {"approved": "green", "needs_attention": "red", "awaiting_review": "orange"}.get(
+    review_color = {"approved": "green", "needs_attention": "red", "awaiting_review": "orange",
+                    "changes_requested": "orange"}.get(
         status.review.state, "gray")
     bits = [badge(color, label)]
     if status.phase in ("ready_for_review", "partial"):

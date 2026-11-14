@@ -54,19 +54,6 @@
         "title": "ActivityItem",
         "type": "object"
       },
-      "ApproveRequest": {
-        "additionalProperties": false,
-        "properties": {
-          "note": {
-            "default": "",
-            "maxLength": 300,
-            "title": "Note",
-            "type": "string"
-          }
-        },
-        "title": "ApproveRequest",
-        "type": "object"
-      },
       "Availability": {
         "additionalProperties": false,
         "properties": {
@@ -1102,6 +1089,58 @@
         "title": "Health",
         "type": "object"
       },
+      "HumanReview": {
+        "additionalProperties": false,
+        "properties": {
+          "at": {
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "confirmed": {
+            "description": "Change IDs the reviewer confirmed",
+            "items": {
+              "type": "string"
+            },
+            "title": "Confirmed",
+            "type": "array"
+          },
+          "decision": {
+            "enum": [
+              "approved",
+              "changes_requested"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "disputed": {
+            "description": "Change IDs the reviewer disputed",
+            "items": {
+              "type": "string"
+            },
+            "title": "Disputed",
+            "type": "array"
+          },
+          "note": {
+            "title": "Note",
+            "type": "string"
+          },
+          "reviewer": {
+            "title": "Reviewer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reviewer",
+          "note",
+          "at",
+          "disputed",
+          "confirmed"
+        ],
+        "title": "HumanReview",
+        "type": "object"
+      },
       "InterpretationArea": {
         "additionalProperties": false,
         "properties": {
@@ -1916,6 +1955,65 @@
         "title": "ReviewDetail",
         "type": "object"
       },
+      "ReviewRequest": {
+        "additionalProperties": false,
+        "description": "A person's decision on a finished report. The same rules apply as in the CLI and dashboard:\napproval needs every investigated change confirmed and both checks; a change request needs a\nnote or a disputed change.",
+        "properties": {
+          "decision": {
+            "enum": [
+              "approved",
+              "changes_requested"
+            ],
+            "title": "Decision",
+            "type": "string"
+          },
+          "figures_checked": {
+            "default": false,
+            "description": "Compared the key figures with the 10-K statements",
+            "title": "Figures Checked",
+            "type": "boolean"
+          },
+          "findings": {
+            "additionalProperties": {
+              "enum": [
+                "confirmed",
+                "disputed",
+                "not_checked"
+              ],
+              "type": "string"
+            },
+            "description": "Change ID -> verdict, for each investigated change",
+            "maxProperties": 50,
+            "title": "Findings",
+            "type": "object"
+          },
+          "limitations_read": {
+            "default": false,
+            "description": "Read the data-quality issues and limitations",
+            "title": "Limitations Read",
+            "type": "boolean"
+          },
+          "note": {
+            "default": "",
+            "maxLength": 1000,
+            "title": "Note",
+            "type": "string"
+          },
+          "reviewer": {
+            "description": "The reviewer's name, recorded with the decision",
+            "maxLength": 80,
+            "minLength": 1,
+            "title": "Reviewer",
+            "type": "string"
+          }
+        },
+        "required": [
+          "decision",
+          "reviewer"
+        ],
+        "title": "ReviewRequest",
+        "type": "object"
+      },
       "ReviewStatus": {
         "additionalProperties": false,
         "properties": {
@@ -1942,6 +2040,14 @@
             ],
             "title": "Approved At"
           },
+          "history": {
+            "description": "Every decision, oldest first",
+            "items": {
+              "$ref": "#/components/schemas/HumanReview"
+            },
+            "title": "History",
+            "type": "array"
+          },
           "label": {
             "title": "Label",
             "type": "string"
@@ -1967,6 +2073,7 @@
               "not_reviewed",
               "awaiting_review",
               "needs_attention",
+              "changes_requested",
               "approved"
             ],
             "title": "State",
@@ -1985,7 +2092,8 @@
           "revision_cycles",
           "unresolved_defects",
           "approved_at",
-          "approval_note"
+          "approval_note",
+          "history"
         ],
         "title": "ReviewStatus",
         "type": "object"
@@ -3235,104 +3343,6 @@
         ]
       }
     },
-    "/api/runs/{run_id}/approve": {
-      "post": {
-        "operationId": "approve_run_api_runs__run_id__approve_post",
-        "parameters": [
-          {
-            "in": "path",
-            "name": "run_id",
-            "required": true,
-            "schema": {
-              "title": "Run Id",
-              "type": "string"
-            }
-          },
-          {
-            "in": "header",
-            "name": "x-reviewer-token",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "X-Reviewer-Token"
-            }
-          }
-        ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ApproveRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/RunStatus"
-                }
-              }
-            },
-            "description": "Successful Response"
-          },
-          "401": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "Unauthorized"
-          },
-          "404": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "Not Found"
-          },
-          "409": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorBody"
-                }
-              }
-            },
-            "description": "Conflict"
-          },
-          "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
-          }
-        },
-        "summary": "Approve Run",
-        "tags": [
-          "runs"
-        ]
-      }
-    },
     "/api/runs/{run_id}/diagnostics": {
       "get": {
         "operationId": "run_diagnostics_api_runs__run_id__diagnostics_get",
@@ -3588,6 +3598,104 @@
           }
         },
         "summary": "Resume Run",
+        "tags": [
+          "runs"
+        ]
+      }
+    },
+    "/api/runs/{run_id}/review": {
+      "post": {
+        "operationId": "review_run_api_runs__run_id__review_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "run_id",
+            "required": true,
+            "schema": {
+              "title": "Run Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "x-reviewer-token",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "X-Reviewer-Token"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ReviewRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RunStatus"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unauthorized"
+          },
+          "404": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Not Found"
+          },
+          "409": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Conflict"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorBody"
+                }
+              }
+            },
+            "description": "Unprocessable Content"
+          }
+        },
+        "summary": "Review Run",
         "tags": [
           "runs"
         ]

@@ -293,8 +293,14 @@ link all reconnect to the same run.
 | Blocking data issue | Run finishes as `partial`: affected metrics are unavailable with a reason, nothing is estimated |
 | Live SEC access not configured | Health says so; real tickers get `503 live_unavailable`; only the synthetic company runs |
 
-**Review state.** `ready_for_review` and `partial` reports are "awaiting analyst review".
-Approval is a separate `POST …/approve`, optionally protected by `FINSIGHT_REVIEWER_TOKEN`.
+**Review state.** `ready_for_review` and `partial` reports are "awaiting analyst review" until a
+person records a decision with `POST …/review` (optionally protected by
+`FINSIGHT_REVIEWER_TOKEN`). The body carries the reviewer's name, a verdict per investigated change
+(confirmed / disputed / not checked), the two checks and a note. `Orchestrator.record_review`
+applies the rules in `finsight/review/human.py`, which the CLI and the dashboard use too: approval
+needs every change confirmed and both checks; a change request needs a note or a disputed change
+and leaves the run unapproved (review state `changes_requested`). Every decision is kept in
+`run.stats.human_reviews` and returned as `review.history`.
 
 **Safety.** Input is validated by Pydantic models that forbid unknown fields; company
 identifiers and run IDs are pattern-checked. Downloads are restricted to files inside the
@@ -319,4 +325,5 @@ No PDF export: reports download as HTML and Markdown, data as CSV and JSON, char
 * The single-prompt baseline (validated tables + retrieved excerpts → one report prompt)
   for measuring what the agentic loop adds. Planned next, once runs with Claude are
   available to compare.
-* Analyst "request revision" from READY_FOR_REVIEW. The web app offers approval only.
+* Re-running investigation or drafting automatically after a change request. Today the request is
+  recorded for whoever revises the report; the analyst then starts a new run.
