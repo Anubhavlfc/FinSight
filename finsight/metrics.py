@@ -19,7 +19,8 @@ free_cash_flow          operating_cash_flow - capital_expenditure. A calculated 
 free_cash_flow_growth   Suppressed when the prior-year value is <= 0; the absolute change is still given.
 cash_and_equivalents    Reported cash and cash equivalents at year end.
 interest_bearing_debt   Long-term debt including current maturities (noncurrent + current balance-sheet
-                        carrying amounts, else LongTermDebt) + commercial paper + short-term borrowings.
+                        carrying amounts, else LongTermDebt) + commercial paper + short-term borrowings
+                        (ShortTermBorrowings, else OtherShortTermBorrowings).
                         Lease liabilities are excluded, except where the filer tags debt and finance
                         leases together; the metric note then says so. Total liabilities is never used
                         as a substitute.
@@ -187,12 +188,21 @@ class _Builder:
                 status=MetricStatus.UNAVAILABLE,
                 note="no long-term debt tag reported. The company may have no debt, but that is not assumed; "
                      "verify in the filing's debt note"))
-        for comp in ("commercial_paper", "short_term_borrowings"):
-            f = self.fact(comp, lbl)
-            if f:
-                parts.append(f)
-            else:
-                notes.append(f"{comp.replace('_', ' ')} not reported; not included")
+        cp, stb, other = (self.fact("commercial_paper", lbl), self.fact("short_term_borrowings", lbl),
+                          self.fact("other_short_term_borrowings", lbl))
+        if cp:
+            parts.append(cp)
+        else:
+            notes.append("commercial paper not reported; not included")
+        if stb:
+            parts.append(stb)
+        elif other:
+            # OtherShortTermBorrowings is a component of ShortTermBorrowings, so it is only
+            # added when the total is not reported (otherwise it would be counted twice).
+            parts.append(other)
+            notes.append("short-term borrowings other than commercial paper from OtherShortTermBorrowings")
+        else:
+            notes.append("short term borrowings not reported; not included")
         if any(p.tag and "CapitalLease" in p.tag for p in parts):
             notes.append("includes finance lease obligations: the filer tags debt and finance leases together")
         value = sum((p.value for p in parts), Decimal(0))

@@ -107,6 +107,12 @@ dimensions, i.e. consolidated totals. Segment data needs the filing itself (Stag
 **Signs.** Capital expenditure is expressed as a positive outflow. A negative reported
 value is flipped and disclosed with a `sign_normalized` warning.
 
+**Derived gross profit and total revenue.** When gross profit is derived as revenue − cost of
+revenue and total revenue (`Revenues`) is larger than contract revenue
+(`RevenueFromContractWithCustomer…`), a `derived_on_total_revenue` warning gives the
+difference. Walmart is the case: its gross profit is net sales − cost of sales, so FinSight's
+derived figure is higher by membership and other income, and the margins are not comparable.
+
 **Missing data.** Alternative tags are tried first, then configured derivations (gross
 profit = revenue − cost of revenue; total liabilities = liabilities and equity − total
 equity; both marked `DERIVED` with input fact IDs). A required field
@@ -140,7 +146,8 @@ See the docstring in `finsight/metrics.py` for formulas. Key choices:
   calculated, non-GAAP measure and labelled as such.
 * **Interest-bearing debt** = long-term debt including current maturities
   (`LongTermDebtNoncurrent` + `LongTermDebtCurrent`, the balance-sheet carrying amounts,
-  else `LongTermDebt`) + commercial paper + short-term borrowings. Leases are excluded,
+  else `LongTermDebt`) + commercial paper + short-term borrowings (`ShortTermBorrowings`, else
+  `OtherShortTermBorrowings`, which the taxonomy defines as a component of it). Leases are excluded,
   except at filers that tag debt and finance leases together
   (`LongTermDebtAndCapitalLeaseObligations*`), where the metric note says so. Total
   liabilities is never substituted. Components that are not reported are named in the

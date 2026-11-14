@@ -260,7 +260,11 @@ FINSIGHT_RUN_LIVE=1 FINSIGHT_RUN_LLM=1 ANTHROPIC_API_KEY=... pytest -m llm   # r
 ```
 
 The offline tests check the demo pipeline against values worked out by hand from
-`scripts/build_demo_fixture.py`. They also cover restatements, a 10-K/A, a quarterly value
+`scripts/build_demo_fixture.py`. **Golden tests** (`tests/unit/test_golden_filings.py`) run the
+pipeline on real XBRL recorded from SEC EDGAR for Microsoft, Apple, Walmart and Coca-Cola
+(`fixtures/golden/`) and compare every reported figure, margin, ratio, growth rate, free cash
+flow and interest-bearing debt total with the numbers printed in each company's 10-K, typed by
+hand into `tests/golden/expected.toml`. They also cover restatements, a 10-K/A, a quarterly value
 labelled as fiscal-year, duplicates and competing tags, sign handling, missing data,
 balance-check failures, zero and negative denominators, retry and pacing behaviour, cache
 reuse, bounded recovery, and resuming after a simulated crash. Stage 2 tests cover 10-K

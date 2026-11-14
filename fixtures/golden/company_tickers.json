@@ -1,0 +1,22 @@
+{
+ "0": {
+  "cik_str": 789019,
+  "ticker": "MSFT",
+  "title": "MICROSOFT CORP"
+ },
+ "1": {
+  "cik_str": 320193,
+  "ticker": "AAPL",
+  "title": "Apple Inc."
+ },
+ "2": {
+  "cik_str": 104169,
+  "ticker": "WMT",
+  "title": "Walmart Inc."
+ },
+ "3": {
+  "cik_str": 21344,
+  "ticker": "KO",
+  "title": "COCA COLA CO"
+ }
+}

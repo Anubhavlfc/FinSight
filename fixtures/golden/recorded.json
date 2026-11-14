@@ -1,0 +1,30 @@
+{
+ "recorded_at": "2026-11-14T03:10:05+00:00",
+ "note": "Real SEC EDGAR data, trimmed. SHA-256 values are of the untrimmed responses.",
+ "companies": [
+  {
+   "ticker": "MSFT",
+   "cik": "0000789019",
+   "submissions_sha256": "4d4ff98b1deea7b90123e2b99c059cdac4343de0dccbdfdc9855e788419f893e",
+   "companyfacts_sha256": "8c1903c041f5c27e86ed15f37debb1f41882b7904bba129ef9edc76478b1e8ea"
+  },
+  {
+   "ticker": "AAPL",
+   "cik": "0000320193",
+   "submissions_sha256": "d7c4a3c888fe60da97ceef8f9b80da4c205e82440c1bc3ba9dcc7316a482a6b1",
+   "companyfacts_sha256": "f085735b4d08fb116ade18d24247ffabe11df8eb52eae6556b165831f15ef1ad"
+  },
+  {
+   "ticker": "WMT",
+   "cik": "0000104169",
+   "submissions_sha256": "974a8f4fe73fc5e16ea8bf18ba149f747fe778ce05a749e46e3006e7bc73216b",
+   "companyfacts_sha256": "49330f98609f70fcef4054edc90bc811398a58c4bf26dc0b218d607967a8dbe4"
+  },
+  {
+   "ticker": "KO",
+   "cik": "0000021344",
+   "submissions_sha256": "12a684e9b7e937e266a44e3d8340c7c63eb8e19d2bd6881f62f0b95dbaa5d6fd",
+   "companyfacts_sha256": "87a4173fcd3d662d18d19e0e885095aa5e3812b74c54d1ee55808ff1540a8081"
+  }
+ ]
+}

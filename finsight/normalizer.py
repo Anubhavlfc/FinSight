@@ -295,6 +295,8 @@ def _derive_and_flag_missing(res: NormalizationResult, plan: AnalysisPlan, mappi
                     issue("derived_field", Severity.INFO,
                           f"{mapping.name} {lbl} was not reported as a tagged value; derived as {mapping.derive_from}.",
                           field=mapping.name, fiscal_period=lbl, fact_ids=[derived.id, a.id, b.id])
+                    if left == "revenue":
+                        _flag_revenue_basis(res, mapping.name, lbl, a, derived, issue)
                     continue
             if mapping.optional:
                 issue("optional_field_missing",
@@ -308,3 +310,35 @@ def _derive_and_flag_missing(res: NormalizationResult, plan: AnalysisPlan, mappi
                       "Next step: confirm the tag in the filing and add a company mapping, or extract it from "
                       "the filing text (planned for Stage 2). No value was substituted.",
                       field=mapping.name, fiscal_period=lbl, affected_metrics=list(mapping.required_for))
+
+
+def _flag_revenue_basis(res: NormalizationResult, field_name: str, lbl: str, revenue: FinancialFact,
+                        derived: FinancialFact, issue: _IssueFactory) -> None:
+    """Warn when a field derived from total revenue may not match the company's own definition.
+
+    Some filers report total revenues that include income outside product and service sales
+    (membership fees, interest, lease income) and present gross profit, if at all, on net sales
+    only. Walmart is the example: total revenues minus cost of sales is not Walmart's gross profit.
+    The derived value is kept (it is arithmetically correct and traceable), but the difference is
+    disclosed so nobody compares it to the company's figure without knowing.
+    """
+    narrower = [f for f in res.rejected
+                if f.field == "revenue" and f.fiscal_period == lbl and f.tag
+                and "RevenueFromContractWithCustomer" in f.tag and f.value < revenue.value]
+    if not narrower:
+        return
+    sales = max(narrower, key=lambda f: f.value)
+    gap = revenue.value - sales.value
+
+    def tag(f: FinancialFact) -> str:
+        return f"{f.taxonomy}:{f.tag}" if f.taxonomy else str(f.tag)
+
+    issue("derived_on_total_revenue", Severity.WARNING,
+          f"{field_name} {lbl} is derived from total revenue ({money(revenue.value)}, {tag(revenue)}), which is "
+          f"{money(gap)} more than contract revenue ({money(sales.value)}, {tag(sales)}). If the company "
+          f"defines {field_name.replace('_', ' ')} on net sales only, its own figure is lower by that amount "
+          "and the margin here is not comparable to the one in its filing.",
+          field=field_name, fiscal_period=lbl, fact_ids=[derived.id, revenue.id, sales.id],
+          affected_metrics=["gross_margin", "gross_margin_change"],
+          details={"total_revenue": str(revenue.value), "contract_revenue": str(sales.value),
+                   "difference": str(gap)})
